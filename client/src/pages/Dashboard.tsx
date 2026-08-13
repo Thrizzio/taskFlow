@@ -16,15 +16,15 @@ export const Dashboard = () => {
 
             <main style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
                 <Link to="/tasks" style={{ padding: '1rem', border: '1px solid #ccc', textDecoration: 'none', color: 'inherit' }}>
-                    <h3>Task Management -></h3>
+                    <h3>Task Management &rarr;</h3>
                     <p>Create and view your tasks</p>
                 </Link>
                 <Link to="/analytics" style={{ padding: '1rem', border: '1px solid #ccc', textDecoration: 'none', color: 'inherit' }}>
-                    <h3>Analytics -></h3>
+                    <h3>Analytics &rarr;</h3>
                     <p>View your focus time</p>
                 </Link>
                 <Link to="/javascript-concepts" style={{ padding: '1rem', border: '1px solid #ccc', textDecoration: 'none', color: 'inherit' }}>
-                    <h3>JS Concepts Demo -></h3>
+                    <h3>JS Concepts Demo &rarr;</h3>
                     <p>Technical demonstration page</p>
                 </Link>
             </main>
