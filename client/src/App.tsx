@@ -7,6 +7,7 @@ import { Tasks } from './pages/Tasks';
 import { TaskDetail } from './pages/TaskDetail';
 import { Focus } from './pages/Focus';
 import { Analytics } from './pages/Analytics';
+import { JSConceptsPage } from './features/javascript-concepts/JSConceptsPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
@@ -29,9 +30,7 @@ function App() {
 
             <Route path="/focus" element={<Focus />} />
             <Route path="/analytics" element={<Analytics />} />
-
-            {/* Stubs for future phases */}
-            <Route path="/javascript-concepts" element={<div>JS Concepts View</div>} />
+            <Route path="/javascript-concepts" element={<JSConceptsPage />} />
           </Route>
         </Routes>
       </Router>
