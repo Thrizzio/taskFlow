@@ -6,6 +6,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Tasks } from './pages/Tasks';
 import { TaskDetail } from './pages/TaskDetail';
 import { Focus } from './pages/Focus';
+import { Analytics } from './pages/Analytics';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
@@ -27,9 +28,9 @@ function App() {
             <Route path="/tasks/:taskId" element={<TaskDetail />} />
 
             <Route path="/focus" element={<Focus />} />
+            <Route path="/analytics" element={<Analytics />} />
 
             {/* Stubs for future phases */}
-            <Route path="/analytics" element={<div>Analytics View</div>} />
             <Route path="/javascript-concepts" element={<div>JS Concepts View</div>} />
           </Route>
         </Routes>
