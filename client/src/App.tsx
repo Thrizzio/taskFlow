@@ -5,6 +5,7 @@ import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
 import { Tasks } from './pages/Tasks';
 import { TaskDetail } from './pages/TaskDetail';
+import { Focus } from './pages/Focus';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
@@ -24,6 +25,8 @@ function App() {
             {/* Tasks */}
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/tasks/:taskId" element={<TaskDetail />} />
+
+            <Route path="/focus" element={<Focus />} />
 
             {/* Stubs for future phases */}
             <Route path="/analytics" element={<div>Analytics View</div>} />
