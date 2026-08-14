@@ -14,9 +14,9 @@ export const getTimeSpentPerUserPerTask = async () => {
         t.title AS "taskTitle",
         SUM(s.duration) AS "totalSeconds"
     FROM users u
-    JOIN tasks t 
+    INNER JOIN tasks t 
         ON t.user_id = u.id
-    JOIN analytics_sessions s 
+    INNER JOIN analytics_sessions s 
         ON s.task_id = t.id
     GROUP BY u.name, t.title
     ORDER BY "totalSeconds" DESC;

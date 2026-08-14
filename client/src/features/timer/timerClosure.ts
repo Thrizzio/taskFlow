@@ -13,18 +13,18 @@
  */
 
 export const createTimer = (initialSeconds = 0) => {
-    let timeElapsed = initialSeconds;
+    let timerState = initialSeconds;
     let intervalId: ReturnType<typeof setInterval> | null = null;
 
     return {
-        getTime: () => timeElapsed,
+        getTime: () => timerState,
 
         start: (onTick?: (time: number) => void) => {
             if (intervalId) return; // already running
 
             intervalId = setInterval(() => {
-                timeElapsed++;
-                if (onTick) onTick(timeElapsed);
+                timerState++;
+                if (onTick) onTick(timerState);
             }, 1000);
         },
 
@@ -40,7 +40,7 @@ export const createTimer = (initialSeconds = 0) => {
                 clearInterval(intervalId);
                 intervalId = null;
             }
-            timeElapsed = initialSeconds;
+            timerState = initialSeconds;
         }
     };
 };
