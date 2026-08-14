@@ -30,3 +30,26 @@ FocusFlow uses a standard client-server architecture:
 ## Deployment Overview
 - Designed as a 12-factor app ready for deployment (e.g. Heroku, Render).
 - Environment variables must be securely injected, with failure-on-missing checks on boot.
+
+## Multi-step Agent (Productivity Assistant)
+
+Flow:
+Client
+  ↓
+POST /api/agent/productivity
+  ↓
+Agent Controller
+  ↓
+Planner
+  ↓
+Analyzer
+  ↓
+Recommendation Generator
+  ↓
+Response
+
+The backend orchestrates these stages sequentially. Each stage has a focused responsibility: the Planner creates a small analysis plan from the user's request, the Analyzer computes simple metrics from focus sessions, and the Recommendation Generator produces a short, human-readable suggestion. Intermediate artifacts are returned for transparency.
+
+## Docker (deployment addition)
+
+The Node/Express server is containerized via a `server/Dockerfile` which builds the TypeScript source into a production image. MongoDB and PostgreSQL remain external services and are not containerized by this prototype.
