@@ -14,6 +14,33 @@
 | Mongo schema modeling | `server/src/models/User.ts`, `Task.ts`, `FocusSession.ts` |
 | SQL JOINs | `server/src/db/queries/analyticsQueries.ts` (`SELECT ... JOIN ...`) |
 
+## New Mapping: Productivity Agent & Docker
+| Topic | Implementation |
+|---|---|
+| Multi-step agent | server/src/agent/productivityAgent.ts |
+| Planning step | server/src/agent/planner.ts |
+| Analysis step | server/src/agent/analyzer.ts |
+| Recommendation step | server/src/agent/recommender.ts |
+| Agent API | server/src/controllers/agentController.ts |
+| Agent route | server/src/routes/agentRoutes.ts |
+| Docker | server/Dockerfile |
+| Docker ignore rules | server/.dockerignore |
+
+## Sequence (runtime)
+1. Receive `POST /api/agent/productivity` with `{ request: string }`.
+2. Controller authenticates and extracts `userId`.
+3. Controller calls `runProductivityAgent(request, userId)`.
+4. `createPlan()` generates a small plan.
+5. `analyzeProductivity()` queries `FocusSession` documents and computes metrics.
+6. `generateRecommendation()` produces a short recommendation string.
+7. Controller returns `{ plan, analysis, recommendation }`.
+
+## Docker build/run (brief)
+- Build: `docker build -t focusflow-server .` (run from `server/`)
+- Run (example):
+  - `docker run -e MONGODB_URI=... -e JWT_SECRET=... -p 4000:4000 focusflow-server`
+
+
 ## Project Structure
 ```text
 server/

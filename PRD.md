@@ -40,3 +40,18 @@ Students and developers who want a straightforward productivity tracker to build
 8. **JS - Promises vs Callbacks**: Demo utility `promisesVsCallbacks.ts`.
 9. **Mongo Schema Modeling**: Used for operational app data (`users`, `tasks`, `focus_sessions`).
 10. **SQL JOINs**: PostgreSQL `analytics_sessions` joined with `users` and `tasks` for analytical reporting without duplicating the whole DB context.
+
+## New Capability: Multi-step productivity assistant (prototype)
+
+Problem:
+Users can collect productivity data but may struggle to interpret it.
+
+Feature:
+A small multi-step productivity assistant analyzes FocusFlow session data and returns a concise recommendation.
+
+User story:
+"As a student, I want FocusFlow to analyze my focus sessions and give me a concise recommendation so I can understand where to improve."
+
+Notes:
+- The assistant is intentionally prototype-scoped and runs server-side via a REST endpoint.
+- Intermediate analysis artifacts (plan and metrics) are returned to keep the design transparent.
