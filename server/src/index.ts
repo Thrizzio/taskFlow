@@ -6,6 +6,7 @@ import authRoutes from './routes/authRoutes';
 import taskRoutes from './routes/taskRoutes';
 import sessionRoutes from './routes/sessionRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
+import agentRoutes from './routes/agentRoutes';
 import { initPgDB } from './db/pg';
 validateEnv();
 
@@ -18,6 +19,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/focus-sessions', sessionRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/agent', agentRoutes);
 
 // Add simple health check
 app.get('/api/health', (req, res) => {
