@@ -1,22 +1,55 @@
-import { Plan } from './planner';
 import { AnalysisResult } from './analyzer';
+import { LlmInsight } from './llmInsight';
+
+// ── Recommender ───────────────────────────────────────────────────────────────
+//
+// Stage 4 of the multi-step agent workflow.
+//
+// Receives BOTH the structured metrics (from the Analyzer, stage 2) AND the
+// LLM's interpretation (from the LLM Insight stage, stage 3).
+//
+// This is what makes the recommendation richer than a pure heuristic:
+// the LLM's reasoning is woven into the final output.
+//
+// Multi-step flow position:
+//   Planner → Analyzer → LLM Insight → [Recommender]
+//
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Generate a short recommendation. This is deterministic for now
- * but kept separate so it can later call an LLM service.
+ * generateRecommendation
+ *
+ * @param analysis - Structured metrics from the Analyzer stage.
+ * @param insight  - Structured interpretation from the LLM Insight stage.
+ * @returns        A human-readable recommendation string.
  */
-export async function generateRecommendation(request: string, plan: Plan, analysis: AnalysisResult): Promise<string> {
+export async function generateRecommendation(
+  analysis: AnalysisResult,
+  insight: LlmInsight,
+): Promise<string> {
   const parts: string[] = [];
-  parts.push(`You had ${analysis.totalMinutes} minutes across ${analysis.sessionCount} sessions.`);
-  if (analysis.topTask) parts.push(`Most focused on: ${analysis.topTask}.`);
 
-  // Simple heuristic suggestions
+  // ── Part 1: raw metrics summary ───────────────────────────────────────────
+  parts.push(
+    `You had ${analysis.totalMinutes} minutes across ${analysis.sessionCount} sessions.`,
+  );
+  if (analysis.topTask) {
+    parts.push(`Most focused on: ${analysis.topTask}.`);
+  }
+
+  // ── Part 2: LLM-derived insight woven in ─────────────────────────────────
+  // The LLM insight (or fallback) is explicitly incorporated here,
+  // making the recommender output dependent on stage 3's result.
+  parts.push(`Insight: ${insight.insight}`);
+  parts.push(`Focus priority → ${insight.priority}: ${insight.reason}`);
+
+  // ── Part 3: heuristic nudge based on raw metrics ─────────────────────────
   if (analysis.sessionCount === 0) {
-    parts.push('No sessions found: try scheduling a single 25-minute focus session this week.');
+    parts.push('Try scheduling a single 25-minute focus session to start building momentum.');
   } else if (analysis.totalMinutes < 60) {
-    parts.push('Total focus time is low; aim for at least 3×25min sessions per week.');
+    parts.push('Aim for at least 3×25-min sessions this week to build a productivity baseline.');
   } else {
-    parts.push('Nice work — consider blocking a morning for deep work on your top task.');
+    parts.push('Consider blocking a morning for deep work on your top task.');
   }
 
   return parts.join(' ');

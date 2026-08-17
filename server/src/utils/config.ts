@@ -6,6 +6,9 @@ const config = {
   POSTGRES_DATABASE_URL: process.env.POSTGRES_DATABASE_URL,
   JWT_SECRET: process.env.JWT_SECRET,
   PORT: process.env.PORT || 4000,
+  // Optional: enables the Gemini LLM Insight stage in the productivity agent.
+  // If absent, the agent returns a deterministic fallback insight instead.
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY,
 };
 
 export const validateEnv = () => {
