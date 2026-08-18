@@ -9,6 +9,15 @@ const config = {
   // Optional: enables the Gemini LLM Insight stage in the productivity agent.
   // If absent, the agent returns a deterministic fallback insight instead.
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+
+  // ── Gemini pricing assumptions ────────────────────────────────────────────
+  // Source: Google AI pricing for gemini-2.0-flash-lite (per 1,000 tokens).
+  // Update these values here if pricing changes; no other file should define
+  // token rates.
+  GEMINI_PRICING: {
+    inputPer1kTokens: 0.000075, // USD per 1,000 input  tokens
+    outputPer1kTokens: 0.000300, // USD per 1,000 output tokens
+  },
 };
 
 export const validateEnv = () => {

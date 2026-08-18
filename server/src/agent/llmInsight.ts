@@ -16,12 +16,26 @@ import { AnalysisResult } from './analyzer';
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Token usage ───────────────────────────────────────────────────────────────
+// Populated from `usageMetadata` in the Gemini REST response.
+// Fields map directly to the API's `promptTokenCount`, `candidatesTokenCount`,
+// and `totalTokenCount` fields.  All values are 0 on the fallback path because
+// no API call was made.
+export interface TokenUsage {
+    inputTokens: number;    // promptTokenCount from Gemini usageMetadata
+    outputTokens: number;   // candidatesTokenCount from Gemini usageMetadata
+    totalTokens: number;    // totalTokenCount from Gemini usageMetadata
+}
+
 /** Structured insight returned by the LLM (or the fallback path). */
 export interface LlmInsight {
-    insight: string;    // One-sentence interpretation of the user's productivity
-    priority: string;   // Focus area the LLM recommends (e.g. "consistency")
-    reason: string;     // Brief justification for the priority
+    insight: string;        // One-sentence interpretation of the user's productivity
+    priority: string;       // Focus area the LLM recommends (e.g. "consistency")
+    reason: string;         // Brief justification for the priority
     source: 'llm' | 'fallback'; // Distinguishes live LLM from graceful fallback
+    // ── Monitoring fields ────────────────────────────────────────────────────
+    usage: TokenUsage;      // Token counts extracted from Gemini usageMetadata
+    estimatedCostUsd: number; // Calculated from config.GEMINI_PRICING (see config.ts)
 }
 
 /** Gemini API endpoint (gemini-2.0-flash-lite is fast and cheap). */
@@ -31,9 +45,13 @@ const GEMINI_ENDPOINT =
 /**
  * getLlmInsight
  *
- * Outer responsibility: build the prompt, call Gemini, parse the response.
+ * Outer responsibility: build the prompt, call Gemini, parse the response,
+ * and extract token usage for cost monitoring.
+ *
  * If anything goes wrong (missing key, network error, bad JSON) it returns a
  * controlled deterministic fallback so the agent workflow never crashes.
+ * On the fallback path, usage is all-zeros and estimatedCostUsd is 0 because
+ * no API call was successfully completed.
  */
 export async function getLlmInsight(
     analysis: AnalysisResult,
@@ -65,7 +83,7 @@ export async function getLlmInsight(
     };
 
     try {
-        // ── Call Gemini via native fetch ─────────────────────────────────────────
+        // ── Call Gemini via native fetch ──────────────────────────────────────
         const response = await fetch(`${GEMINI_ENDPOINT}?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -80,17 +98,30 @@ export async function getLlmInsight(
         const geminiResponse = await response.json() as GeminiResponse;
         const rawText = geminiResponse.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 
-        // ── Parse the JSON the LLM produced ────────────────────────────────────
+        // ── Parse the JSON the LLM produced ──────────────────────────────────
         const parsed = parseInsightJson(rawText);
         if (!parsed) {
             console.error('[llmInsight] Could not parse LLM response as insight JSON.');
             return buildFallback(analysis);
         }
 
-        return { ...parsed, source: 'llm' };
+        // ── Extract token usage from usageMetadata ────────────────────────────
+        // Gemini REST responses include a `usageMetadata` object with
+        // `promptTokenCount`, `candidatesTokenCount`, and `totalTokenCount`.
+        // We read these directly rather than estimating from character count.
+        const usage = extractUsage(geminiResponse.usageMetadata);
+        const estimatedCostUsd = calculateCost(usage);
+
+        console.log(
+            `[llmInsight] tokens — input: ${usage.inputTokens}, ` +
+            `output: ${usage.outputTokens}, total: ${usage.totalTokens}, ` +
+            `estimatedCost: $${estimatedCostUsd.toFixed(8)}`
+        );
+
+        return { ...parsed, source: 'llm', usage, estimatedCostUsd };
 
     } catch (err) {
-        // ── Network or unexpected error → fallback ───────────────────────────────
+        // ── Network or unexpected error → fallback ────────────────────────────
         console.error('[llmInsight] Gemini request failed:', err);
         return buildFallback(analysis);
     }
@@ -103,13 +134,52 @@ interface GeminiResponse {
     candidates?: Array<{
         content?: { parts?: Array<{ text?: string }> };
     }>;
+    // ── Token usage from Gemini usageMetadata ─────────────────────────────────
+    // Present on every successful non-streaming generateContent response.
+    usageMetadata?: {
+        promptTokenCount?: number;      // input tokens
+        candidatesTokenCount?: number;  // output tokens
+        totalTokenCount?: number;       // sum of the above
+    };
 }
+
+/**
+ * extractUsage
+ *
+ * Maps Gemini's `usageMetadata` fields to the `TokenUsage` interface.
+ * Falls back to 0 for any field that the API did not include.
+ */
+function extractUsage(usageMetadata?: GeminiResponse['usageMetadata']): TokenUsage {
+    return {
+        inputTokens: usageMetadata?.promptTokenCount ?? 0,
+        outputTokens: usageMetadata?.candidatesTokenCount ?? 0,
+        totalTokens: usageMetadata?.totalTokenCount ?? 0,
+    };
+}
+
+/**
+ * calculateCost
+ *
+ * Computes the estimated cost in USD using the pricing rates defined in
+ * config.GEMINI_PRICING.  That object is the single place to update rates.
+ *
+ * Formula: (tokens / 1000) × ratePerThousand
+ */
+function calculateCost(usage: TokenUsage): number {
+    const { inputPer1kTokens, outputPer1kTokens } = config.GEMINI_PRICING;
+    const inputCost = (usage.inputTokens / 1000) * inputPer1kTokens;
+    const outputCost = (usage.outputTokens / 1000) * outputPer1kTokens;
+    return inputCost + outputCost;
+}
+
+/** Zero-usage / zero-cost value used on the fallback path. */
+const ZERO_USAGE: TokenUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
 
 /**
  * Try to parse a raw LLM text as an LlmInsight-shaped JSON object.
  * Returns null if the required fields are missing or the text is not valid JSON.
  */
-function parseInsightJson(raw: string): Omit<LlmInsight, 'source'> | null {
+function parseInsightJson(raw: string): Omit<LlmInsight, 'source' | 'usage' | 'estimatedCostUsd'> | null {
     try {
         const obj = JSON.parse(raw) as Record<string, unknown>;
         const insight = typeof obj.insight === 'string' ? obj.insight : null;
@@ -127,7 +197,10 @@ function parseInsightJson(raw: string): Omit<LlmInsight, 'source'> | null {
  * buildFallback
  *
  * Returns a deterministic insight derived from the AnalysisResult when the
- * LLM is unavailable or fails. Keeps the 4-stage workflow intact.
+ * LLM is unavailable or fails.  Keeps the 4-stage workflow intact.
+ *
+ * Usage is all-zeros because no Gemini API call was made.
+ * estimatedCostUsd is 0 for the same reason.
  */
 function buildFallback(analysis: AnalysisResult): LlmInsight {
     let insight: string;
@@ -148,5 +221,5 @@ function buildFallback(analysis: AnalysisResult): LlmInsight {
         reason = 'Good overall volume — maintaining a regular schedule will compound the gains.';
     }
 
-    return { insight, priority, reason, source: 'fallback' };
+    return { insight, priority, reason, source: 'fallback', usage: ZERO_USAGE, estimatedCostUsd: 0 };
 }

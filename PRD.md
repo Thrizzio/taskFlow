@@ -138,3 +138,40 @@ The MVP is successful when an authenticated user can:
 5. Submit a productivity request.
 6. Receive a recommendation based on their focus-session data.
 7. Continue receiving a valid response when the LLM service is unavailable.
+
+---
+
+# 10. LLM Evaluation
+
+## Problem
+
+An LLM-backed workflow may produce incorrect or low-quality output. Without a structured evaluation mechanism, regressions are hard to detect.
+
+## Capability
+
+FocusFlow includes a small evaluation set for the productivity workflow. The evaluation set covers representative input scenarios (no sessions, low volume, high volume). Each case defines reference criteria against which the returned insight and recommendation are assessed.
+
+## Requirements
+
+* The evaluation must not modify production data.
+* Pass/fail results must be deterministic for the fallback path.
+* Results must be runnable independently of the main application.
+
+---
+
+# 11. Token and Cost Monitoring
+
+## Problem
+
+External LLM calls consume tokens and incur cost. Without monitoring, these cannot be tracked, debugged, or optimized.
+
+## Capability
+
+FocusFlow records token usage and estimated cost for every Gemini call made during the productivity workflow. This information is returned alongside the insight and recommendation in the API response.
+
+## Requirements
+
+* Token counts must come from the actual Gemini response rather than approximations.
+* Pricing assumptions must be defined in one configurable location.
+* When the fallback path is used (no API call made), usage must be reported as zero tokens and zero cost.
+

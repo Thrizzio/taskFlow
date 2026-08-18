@@ -180,3 +180,51 @@ MongoDB and PostgreSQL remain external services.
 Environment-specific values such as `GEMINI_API_KEY` are supplied through environment variables rather than committed to the repository.
 
 The architecture is designed to support deployment on platforms such as Render or Heroku.
+
+---
+
+# 8. LLM Evaluation Workflow
+
+An offline evaluation workflow tests the productivity agent's LLM stage using a fixed set of representative inputs.
+
+```text
+Evaluation Cases (evalCases.ts)
+        ↓
+Eval Runner (evalRunner.ts)
+        ↓
+getLlmInsight() — same function as production
+        ↓
+Score result against criteria
+        ↓
+Pass / Fail report
+```
+
+* The runner calls the same `getLlmInsight` function used in production.
+* Synthetic `AnalysisResult` objects are supplied instead of real database data, keeping the evaluation self-contained.
+* The fallback path is deterministic, so evaluation is reproducible without a live Gemini key.
+
+---
+
+# 9. Token and Cost Monitoring
+
+Token usage and estimated cost are captured at the LLM Insight stage, alongside the insight content.
+
+```text
+Gemini REST response
+        ↓
+  usageMetadata
+  ├── promptTokenCount     → usage.inputTokens
+  ├── candidatesTokenCount → usage.outputTokens
+  └── totalTokenCount      → usage.totalTokens
+        ↓
+  calculateCost(usage)
+  using GEMINI_PRICING from config.ts
+        ↓
+  estimatedCostUsd
+```
+
+* Token counts come directly from the Gemini `usageMetadata` object in the REST response.
+* Pricing rates are defined once in `config.ts` and not duplicated elsewhere.
+* On the fallback path, both usage and cost are reported as zero.
+* The monitoring fields (`usage`, `estimatedCostUsd`) are returned in the API response alongside the insight.
+

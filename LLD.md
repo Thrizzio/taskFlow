@@ -455,3 +455,141 @@ ended_at
 ```
 
 These relational tables are joined in `analyticsQueries.ts` when analytics require data from multiple entities.
+
+---
+
+# 12. Token and Cost Monitoring
+
+## Location
+
+`server/src/agent/llmInsight.ts`
+
+## Token Usage Extraction
+
+Gemini's REST `generateContent` response includes a `usageMetadata` object. The `GeminiResponse` interface in `llmInsight.ts` is typed to include this field:
+
+```typescript
+usageMetadata?: {
+    promptTokenCount?: number;      // input tokens
+    candidatesTokenCount?: number;  // output tokens
+    totalTokenCount?: number;       // sum
+};
+```
+
+The `extractUsage()` function reads these fields and maps them to the `TokenUsage` interface:
+
+```typescript
+export interface TokenUsage {
+    inputTokens: number;    // from promptTokenCount
+    outputTokens: number;   // from candidatesTokenCount
+    totalTokens: number;    // from totalTokenCount
+}
+```
+
+Any missing field defaults to `0` (optional chaining + nullish coalescing).
+
+## Cost Calculation
+
+`calculateCost(usage: TokenUsage)` in `llmInsight.ts` reads rates from `config.GEMINI_PRICING`:
+
+```
+estimatedCostUsd = (inputTokens  / 1000) × inputPer1kTokens
+                 + (outputTokens / 1000) × outputPer1kTokens
+```
+
+## Pricing Configuration
+
+Rates are defined once in `server/src/utils/config.ts`:
+
+```typescript
+GEMINI_PRICING: {
+    inputPer1kTokens:  0.000075,  // USD per 1,000 input tokens
+    outputPer1kTokens: 0.000300,  // USD per 1,000 output tokens
+}
+```
+
+No other file contains token rate numbers.
+
+## LlmInsight Output Fields
+
+`usage` and `estimatedCostUsd` are added to the `LlmInsight` interface and returned in every response:
+
+```typescript
+export interface LlmInsight {
+    insight: string;
+    priority: string;
+    reason: string;
+    source: 'llm' | 'fallback';
+    usage: TokenUsage;
+    estimatedCostUsd: number;
+}
+```
+
+## Fallback Path
+
+When the fallback path is used: `usage` is `{ inputTokens: 0, outputTokens: 0, totalTokens: 0 }` and `estimatedCostUsd` is `0`. No fabricated values appear.
+
+---
+
+# 13. LLM Evaluation Sets
+
+## Files
+
+| File | Role |
+|------|------|
+| `server/src/agent/eval/evalCases.ts` | Evaluation dataset — 4 test cases with mock inputs and criteria |
+| `server/src/agent/eval/evalRunner.ts` | Runner — executes cases, scores results, prints report |
+
+## Evaluation Cases
+
+Each entry in `evalCases` has:
+
+```typescript
+interface EvalCase {
+    id: string;               // unique identifier (e.g. 'eval-01')
+    description: string;      // human-readable description
+    userRequest: string;      // natural-language input to the agent
+    mockAnalysis: AnalysisResult; // synthetic metrics — no DB access
+    criteria: EvalCriteria;   // pass/fail rules
+}
+```
+
+The `mockAnalysis` replaces real session data, making the eval self-contained.
+
+## Evaluation Criteria
+
+```typescript
+interface EvalCriteria {
+    insightNonEmpty: true;                // insight must be a non-empty string
+    reasonNonEmpty: true;                 // reason must be a non-empty string
+    priorityContainsOneOf: string[];      // priority must contain one keyword (case-insensitive)
+    sourceIs: Array<'llm' | 'fallback'>; // source must be one of these values
+}
+```
+
+Criteria check semantic properties, not exact strings. This is appropriate for LLM output, which is non-deterministic.
+
+## Runner Flow
+
+1. Loads all cases from `evalCases`.
+2. Calls `getLlmInsight(mockAnalysis, userRequest)` for each.
+3. Scores the `LlmInsight` result against `EvalCriteria` via `scoreResult()`.
+4. Prints a per-case PASS/FAIL line and a detailed report including token/cost information.
+5. Exits with code 1 if any case fails.
+
+## Running the Evaluation
+
+```
+npm run eval
+```
+(from `server/`)
+
+## Cases Covered
+
+| ID | Scenario | Key Criterion |
+|----|----------|---------------|
+| eval-01 | Zero sessions | Priority suggests starting |
+| eval-02 | Low focus time (30 min) | Priority relates to volume |
+| eval-03 | High focus time (150 min) | Priority relates to consistency |
+| eval-04 | Moderate time, specific task question | Priority relates to volume or focus |
+
