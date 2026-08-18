@@ -1,19 +1,29 @@
-FROM node:20-alpine
+# ── Stage 1: Builder ─────────────────────────────────────────────────────────
+# Installs all dependencies (including devDependencies) and compiles TypeScript.
+FROM node:20-alpine AS builder
 
-# Create app directory
 WORKDIR /usr/src/app
 
-# Install app dependencies
 COPY package.json package-lock.json* ./
-RUN npm install --production
+RUN npm ci
 
-# Copy source
 COPY . .
-
-# Build TypeScript
 RUN npm run build
 
-# Expose port and start
+# ── Stage 2: Production runtime ───────────────────────────────────────────────
+# Copies only the compiled output and production dependencies.
+# No TypeScript compiler, no source files, no devDependencies.
+FROM node:20-alpine AS production
+
+WORKDIR /usr/src/app
+
+# Install production dependencies only
+COPY package.json package-lock.json* ./
+RUN npm ci --omit=dev
+
+# Copy compiled JS from the builder stage
+COPY --from=builder /usr/src/app/dist ./dist
+
 ENV NODE_ENV=production
 EXPOSE 4000
 CMD ["node", "dist/index.js"]
