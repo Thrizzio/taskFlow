@@ -170,18 +170,132 @@ The Node.js server acts as the central orchestrator between the client, database
 
 # 7. Deployment & Docker
 
-The server is containerized using:
 
-* `server/Dockerfile`
-* `server/.dockerignore`
+FocusFlow containerizes the Node.js server so that the application runtime is isolated from the host environment and can be deployed consistently.
 
-MongoDB and PostgreSQL remain external services.
 
-Environment-specific values such as `GEMINI_API_KEY` are supplied through environment variables rather than committed to the repository.
+### Docker Structure
 
-The architecture is designed to support deployment on platforms such as Render or Heroku.
 
----
+The server uses:
+
+
+* `server/Dockerfile` — defines the container build and runtime environment.
+* `server/.dockerignore` — prevents unnecessary development files from being included in the Docker build context.
+
+
+The Dockerfile uses a multi-stage build:
+
+
+```text
+Source Code
+    ↓
+Builder Stage
+    ├── Install dependencies
+    ├── Compile TypeScript
+    └── Generate dist/
+    ↓
+Production Stage
+    ├── Install production dependencies only
+    └── Copy compiled dist/
+    ↓
+Production Container
+
+The builder stage contains the dependencies and tooling required to compile the TypeScript server.
+
+The production stage is kept separate from the build environment. It installs only production dependencies and copies the compiled dist/ output from the builder stage. Development dependencies such as the TypeScript compiler and tsx are therefore not required in the final runtime image.
+
+This reduces the size and attack surface of the production image while keeping the build process reproducible.
+
+External Services
+
+Only the Node.js application server is containerized.
+
+MongoDB and PostgreSQL remain external services:
+
+Docker Container
+    │
+    ├── Node.js + Express
+    │
+    ├── → MongoDB
+    │
+    └── → PostgreSQL
+
+
+External API
+    ↑
+Gemini API
+
+This separation means the application container does not need to manage database lifecycles. Database connection information is supplied through environment variables.
+
+Environment Configuration
+
+Sensitive and environment-specific configuration is not stored directly in the Docker image or source code.
+
+Values such as:
+
+GEMINI_API_KEY
+MongoDB connection information
+PostgreSQL connection information
+JWT configuration
+
+are supplied through environment variables at runtime.
+
+This allows the same container image to be used across different environments without rebuilding the application with different credentials.
+
+Deployment Strategy
+
+The intended deployment strategy is to build the server as a Docker image and run that image in a container-based deployment environment.
+
+The process is:
+
+Git Repository
+      ↓
+Docker Build
+      ↓
+Multi-stage Docker Image
+      ↓
+Production Container
+      ↓
+Environment Variables
+      ↓
+External MongoDB / PostgreSQL / Gemini API
+
+The application is therefore separated into:
+
+A reproducible application image containing the server runtime.
+External managed services containing persistent data.
+Runtime configuration supplied by the deployment environment.
+
+This allows application code and infrastructure configuration to remain separate.
+
+Anticipated Deployment Challenges
+
+Several practical deployment issues were considered when designing the containerization strategy.
+
+1. Build-time vs runtime dependencies
+
+The TypeScript compiler and other development tools are required during the build but are unnecessary when running the application. The multi-stage Docker build addresses this by keeping build dependencies in the builder stage and copying only the compiled application into the production stage.
+
+2. Environment-specific configuration
+
+The container cannot rely on local .env files or development-machine configuration. Runtime secrets such as GEMINI_API_KEY therefore need to be provided by the deployment environment.
+
+3. Database connectivity
+
+MongoDB and PostgreSQL are outside the application container. The deployed server must therefore receive valid connection strings and have network access to those external services.
+
+4. Differences between local and container environments
+
+A container provides a controlled Node.js runtime, but local development and production can still differ in configuration, networking, and environment variables. Keeping the Dockerfile explicit and separating the build and production stages reduces these differences.
+
+5. Image size and unnecessary files
+
+Including the entire development environment in the production image would increase image size and include tools that are not needed at runtime. The multi-stage build and .dockerignore are used to keep the production image focused on the compiled server and its production dependencies.
+
+Deployment Goal
+
+The overall deployment design is to produce a small, reproducible production image containing only what is required to run the FocusFlow server, while keeping databases, secrets, and other external services outside the application container.
 
 # 8. LLM Evaluation Workflow
 
