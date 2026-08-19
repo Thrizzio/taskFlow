@@ -342,3 +342,98 @@ Gemini REST response
 * On the fallback path, both usage and cost are reported as zero.
 * The monitoring fields (`usage`, `estimatedCostUsd`) are returned in the API response alongside the insight.
 
+---
+
+# 10. Controlled Tool Calling
+
+The LLM Insight stage supports a multi-turn tool-calling flow. The LLM may request one predefined tool; the server validates the name, executes the function, and returns the result in a second request.
+
+```text
+Turn 1 — Initial Gemini request
+  User request + TOOL_DECLARATIONS sent to Gemini
+          ↓
+  Gemini may return:  (a) text response
+                   or (b) functionCall { name, args }
+
+Turn 2 — If functionCall received:
+  server validates name against TOOL_REGISTRY (whitelist)
+          ↓
+  [allowed]  server executes the registered function
+          ↓
+  server sends second request with functionResponse
+          ↓
+  Gemini returns final JSON insight
+
+  [unknown name]  server rejects — no execution, returns fallback
+```
+
+* `TOOL_DECLARATIONS` (sent to Gemini) defines what the LLM may request.
+* `TOOL_REGISTRY` (server-side map) defines what the server will actually execute.
+* Only tool names present in `TOOL_REGISTRY` are executed — all others are rejected.
+* File: `server/src/agent/agentTools.ts`
+
+---
+
+# 11. Request Validation
+
+Validation is a middleware layer that runs between the router and the controller.
+
+```text
+HTTP request
+    ↓
+Route handler
+    ↓
+validate(schema)   ← middleware in validate.ts
+    ↓
+controller         ← only reached on valid input
+```
+
+* On invalid input: middleware responds with HTTP 400 and an error message.
+* On valid input: middleware calls `next()` — the controller executes.
+* Schemas are defined once in `validate.ts` and referenced by name in route files.
+
+---
+
+# 12. Testing Layers
+
+FocusFlow separates tests into two distinct layers.
+
+```text
+Unit tests (npm test)
+  └── src/tests/unit/
+        ├── Isolated pure functions, no DB or HTTP
+        └── Tools: vitest only
+
+Integration tests (npm run test:integration)
+  └── src/tests/integration/
+        ├── Full HTTP route/middleware stack
+        ├── Real Express app via testApp.ts
+        ├── Mocked Mongoose models (no DB)
+        └── Tools: vitest + supertest
+```
+
+The two layers demonstrate different concerns:
+* Unit tests verify correctness of small deterministic functions.
+* Integration tests verify that routing, middleware, and controllers interact correctly.
+
+---
+
+# 13. MongoDB Indexing
+
+Indexes are defined in the Mongoose schema files alongside the field definitions.
+
+```text
+FocusSession collection
+  ├── { userId: 1 }            ← single-field index
+  │     used by: productivityAgent session lookup (by userId)
+  │
+  └── { userId: 1, taskId: 1 } ← compound index
+        used by: analyzeProductivity (groups by taskId within userId)
+
+Task collection
+  └── { userId: 1 }  ← already defined with index: true in the schema
+```
+
+Unqueried fields (`status`, `duration`, `startedAt`) are not indexed because no query filters or sorts on these fields alone.
+
+

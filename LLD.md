@@ -14,6 +14,11 @@
 | SQL JOINs                       | `server/src/db/queries/analyticsQueries.ts`                      |
 | Multi-step agent                | `server/src/agent/productivityAgent.ts`                          |
 | Docker                          | `server/Dockerfile`, `server/.dockerignore`                      |
+| Tool calling                    | `server/src/agent/agentTools.ts`, `server/src/agent/llmInsight.ts` |
+| Request validation              | `server/src/middleware/validate.ts`                              |
+| Unit tests                      | `server/src/tests/unit/`                                         |
+| Integration tests               | `server/src/tests/integration/`                                  |
+| MongoDB indexing                | `server/src/models/FocusSession.ts`                              |
 
 ---
 
@@ -592,4 +597,168 @@ npm run eval
 | eval-02 | Low focus time (30 min) | Priority relates to volume |
 | eval-03 | High focus time (150 min) | Priority relates to consistency |
 | eval-04 | Moderate time, specific task question | Priority relates to volume or focus |
+
+---
+
+# 14. Controlled Tool Calling
+
+## Files
+
+| File | Role |
+|------|------|
+| `server/src/agent/agentTools.ts` | Tool declarations, TOOL_REGISTRY whitelist, `executeTool` dispatcher |
+| `server/src/agent/llmInsight.ts` | Multi-turn flow: sends TOOL_DECLARATIONS, handles `functionCall`, sends `functionResponse` |
+
+## Tool Declarations
+
+`TOOL_DECLARATIONS` is an array sent to Gemini in the `tools[].functionDeclarations` field:
+
+```typescript
+{
+    name: 'getProductivitySummary',
+    description: 'Returns structured productivity metrics from recorded focus sessions.',
+    parameters: { type: 'object', properties: { includeTopTask: { type: 'boolean' } } }
+}
+```
+
+## TOOL_REGISTRY (server-side whitelist)
+
+```typescript
+const TOOL_REGISTRY: Record<string, Function> = {
+    getProductivitySummary,   // only this name is allowed to execute
+};
+```
+
+`executeTool(name, args, analysis)` looks up `name` in `TOOL_REGISTRY` and returns `null` if not found. No execution happens for unrecognised names.
+
+## Multi-Turn Flow in llmInsight.ts
+
+1. First `fetch` call: sends prompt + `tools` array to Gemini.
+2. If the response `candidate.content.parts` contains a `functionCall` object:
+   - `executeTool(name, args, analysis)` is called.
+   - If `null` is returned (unknown tool), the flow skips the second turn.
+   - If a `ToolResult` is returned, a second `fetch` call is made including a `functionResponse` part.
+3. The text from the final response is parsed as the insight JSON.
+
+---
+
+# 15. Request Body Validation
+
+## File
+
+`server/src/middleware/validate.ts`
+
+## FieldRule Interface
+
+```typescript
+interface FieldRule {
+    required?: boolean;
+    type?: 'string' | 'number';
+    minLength?: number;
+    isEmail?: boolean;
+}
+```
+
+## validate() Middleware Factory
+
+`validate(schema)` returns an Express middleware. For each field in the schema:
+1. Checks `required` — returns 400 if absent or empty.
+2. Checks `type` — returns 400 if wrong type.
+3. Checks `minLength` — returns 400 if string is too short.
+4. Checks `isEmail` — returns 400 if regex `/^[^\s@]+@[^\s@]+\.[^\s@]+$/` fails.
+5. On all checks passing → calls `next()`.
+
+## Schemas and Endpoints Covered
+
+| Schema | Endpoint | Rule summary |
+|--------|----------|--------------|
+| `registerSchema` | `POST /api/auth/register` | name required, email required+isEmail, password required+minLength 6 |
+| `loginSchema` | `POST /api/auth/login` | email required+isEmail, password required |
+| `createTaskSchema` | `POST /api/tasks` | title required+minLength 1 |
+| `agentRequestSchema` | `POST /api/agent/productivity` | request required+minLength 1 |
+
+---
+
+# 16. Unit Tests
+
+## Location
+
+`server/src/tests/unit/`
+
+## Test Files and What They Test
+
+| File | Function under test | What is verified |
+|------|--------------------|-----------------|
+| `createTaskFilter.test.ts` | `createTaskFilter` closure | all/pending/completed filter, empty result, closure independence |
+| `planner.test.ts` | `createPlan` | standard goals always present, week/day timeframe, no-timeframe edge case |
+| `agentTools.test.ts` | `executeTool` + cost formula | known tool executes, unknown tool returns null, cost arithmetic |
+
+**Run command:** `npm test` (from `server/`)
+
+**Result: 20 tests across 3 files — all pass without database or network.**
+
+---
+
+# 17. Integration Tests
+
+## Location
+
+`server/src/tests/integration/`
+
+## App Factory
+
+`server/src/testApp.ts` — exports `createApp()` which builds the Express app (routes, middleware, JSON parsing) without starting a server or connecting to a database. Integration tests import this function.
+
+## Test Files and Endpoints Covered
+
+| File | Endpoints tested | Cases |
+|------|-----------------|-------|
+| `auth.test.ts` | `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/health`, `GET /api/tasks` (auth check) | Validation 400, missing fields 400, invalid credentials 401, valid JWT passes auth |
+| `tasks.test.ts` | `GET /api/tasks`, `POST /api/tasks`, `POST /api/agent/productivity` | 401 without token, 400 missing title, 400 missing request field, 200 with valid JWT |
+
+**Run command:** `npm run test:integration` (from `server/`)
+
+**Result: 19 tests across 2 files — all pass. Mongoose models are mocked via `vi.mock`. No real DB or Gemini API key required.**
+
+## Difference from Unit Tests
+
+| Dimension | Unit tests | Integration tests |
+|-----------|-----------|------------------|
+| Entry point | Function call | HTTP request via supertest |
+| What is exercised | Function logic only | Router + middleware + controller |
+| Mocking | None (pure functions) | Mongoose models mocked |
+| Purpose | Verify correctness of logic | Verify routing/middleware behavior |
+
+---
+
+# 18. MongoDB Indexes
+
+## File
+
+`server/src/models/FocusSession.ts`
+
+## Indexes Added
+
+```typescript
+focusSessionSchema.index({ userId: 1 });
+focusSessionSchema.index({ userId: 1, taskId: 1 });
+```
+
+## Index-to-Query Mapping
+
+| Index | Query that uses it | Why |
+|-------|-------------------|-----|
+| `{ userId: 1 }` | `FocusSession.find({ userId })` in `productivityAgent.ts` | Retrieves all sessions for a user without a full collection scan |
+| `{ userId: 1, taskId: 1 }` | Session grouping by `taskId` in `analyzeProductivity` | Covered by the compound index prefix for `userId`, and supports efficient per-task aggregation |
+
+## Why Other Fields Were Not Indexed
+
+* `status` — no query filters on status alone.
+* `duration` — used in arithmetic after fetch, not as a filter.
+* `startedAt` / `endedAt` — not filtered or sorted in any current query.
+
+## Task Collection
+
+`Task.userId` already has `{ index: true }` defined inline in `Task.ts`. No change was needed.
+
 
