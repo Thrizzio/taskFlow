@@ -1,52 +1,68 @@
-export const fetchDataCallback = (shouldSucceed, callback) => {
+export const fetchUserWithCallback = (shouldSucceed, callback) => {
     setTimeout(() => {
-        if (shouldSucceed) {
-            callback(null, 'Data retrieved successfully.');
-        } else {
-            callback(new Error('Failed to retrieve data.'));
+        if (!shouldSucceed) {
+            callback(new Error('Failed to fetch user.'));
+            return;
         }
-    }, 500);
+
+        const user = { id: 1, name: 'Aadi' };
+
+        setTimeout(() => {
+            const processedUser = {
+                ...user,
+                processed: true
+            };
+
+            setTimeout(() => {
+                callback(null, 'User saved successfully.');
+            }, 300);
+        }, 300);
+    }, 300);
 };
 
 export const runCallbackExample = (shouldSucceed) => {
-    fetchDataCallback(shouldSucceed, (error, data) => {
+    fetchUserWithCallback(shouldSucceed, (error, result) => {
         if (error) {
             console.error('Callback error:', error.message);
             return;
         }
 
-        console.log('Callback result:', data);
+        console.log('Callback result:', result);
     });
-};
-
-export const fetchUser = (shouldSucceed) => {
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            if (shouldSucceed) {
-                resolve('User data retrieved.');
-            } else {
-                reject(new Error('Failed to retrieve user.'));
-            }
-        }, 500);
-    });
-};
-
-export const processUser = (user) => {
-    return Promise.resolve(`${user} processed.`);
-};
-
-export const saveUser = (user) => {
-    return Promise.resolve(`${user} saved successfully.`);
 };
 
 export const runPromiseExample = (shouldSucceed) => {
-    fetchUser(shouldSucceed)
-        .then((user) => processUser(user))
-        .then((processedUser) => saveUser(processedUser))
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            if (!shouldSucceed) {
+                reject(new Error('Failed to fetch user.'));
+                return;
+            }
+
+            resolve({ id: 1, name: 'Aadi' });
+        }, 300);
+    })
+        .then((user) => {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    resolve({
+                        ...user,
+                        processed: true
+                    });
+                }, 300);
+            });
+        })
+        .then((processedUser) => {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    resolve('User saved successfully.');
+                }, 300);
+            });
+        })
         .then((result) => {
-            console.log('Promise chain result:', result);
+            console.log('Promise result:', result);
         })
         .catch((error) => {
-            console.error('Promise chain error:', error.message);
+            console.error('Promise error:', error.message);
         });
 };

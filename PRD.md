@@ -175,3 +175,82 @@ FocusFlow records token usage and estimated cost for every Gemini call made duri
 * Pricing assumptions must be defined in one configurable location.
 * When the fallback path is used (no API call made), usage must be reported as zero tokens and zero cost.
 
+---
+
+# 12. Controlled Tool Calling
+
+## Problem
+
+The LLM stage can produce better-grounded insights if it can request structured data, but unrestricted LLM function execution is a security risk.
+
+## Capability
+
+The productivity-agent LLM stage supports a controlled tool-calling mechanism. The server defines a fixed whitelist of one tool (`getProductivitySummary`). The LLM may request this tool; the server validates the name against the registry, executes the corresponding server-side function, and returns the result to the LLM. The LLM cannot request arbitrary code execution.
+
+## Requirements
+
+* Tool definitions must be declared explicitly with name, description, and argument schema.
+* The server must reject any tool name not in the registry.
+* The tool result must be returned to the LLM in a second request.
+* The LLM must not be able to execute arbitrary functions or code.
+
+---
+
+# 13. Request Body Validation
+
+## Problem
+
+Without input validation, malformed requests can reach business logic or produce unhelpful errors.
+
+## Capability
+
+FocusFlow validates request bodies before controllers execute. Invalid input returns HTTP 400 with a descriptive error message. Four endpoints are validated: registration, login, task creation, and the productivity-agent request.
+
+## Requirements
+
+* Validation must occur before controller logic runs.
+* Invalid input must return HTTP 400.
+* Validation must be defined in one reusable location.
+
+---
+
+# 14. Testing Requirements
+
+## Problem
+
+Without automated tests, regressions are hard to catch and behavior is difficult to demonstrate.
+
+## Capability
+
+FocusFlow has two test layers:
+
+* **Unit tests** — test small, isolated, deterministic functions (closure, planner, tool dispatch, cost formula). No DB or network required.
+* **Integration tests** — test real HTTP routes and middleware behavior (auth, validation, task CRUD) using supertest. DB is mocked.
+
+Both layers run with `npm test` and `npm run test:integration` respectively.
+
+## Requirements
+
+* Unit tests must not require database connections.
+* Integration tests must not require a real database or Gemini API key.
+* Tests must fail clearly when behavior changes.
+
+---
+
+# 15. MongoDB Indexing
+
+## Problem
+
+As session counts grow, unindexed queries against large collections degrade performance.
+
+## Capability
+
+FocusFlow adds explicit MongoDB indexes to the `FocusSession` collection on the fields used by the analytics and agent queries. The `Task.userId` index already exists.
+
+## Requirements
+
+* Indexes must correspond to actual query patterns.
+* Unnecessary indexes must be avoided.
+* Index definitions must be co-located with the Mongoose schema.
+
+
