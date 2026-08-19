@@ -31,9 +31,13 @@ interface Task {
     was 'pending'.
 */
 export function createTaskFilter(statusFilter: string) {
-    return function filterTask(task: Task): boolean {
-        return statusFilter === 'all' || task.status === statusFilter;
-    };
+    let currentFilter = statusFilter;
+
+    function filterTask(task: Task): boolean {
+        return currentFilter === 'all' || task.status === currentFilter;
+    }
+
+    return filterTask;
 }
 
 export const Tasks = () => {
