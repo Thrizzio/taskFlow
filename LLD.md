@@ -814,3 +814,12 @@ Environment variables are injected at container runtime and parsed in `server/sr
     <input value={title} onChange={(e) => setTitle(e.target.value)} />
     ```
 *   **Benefit:** React retains full authority over the form. Submitting relies on current state, not DOM reading.
+
+
+---
+# 23. Form Validation (Client-Side)
+
+## Implementation & Relevant Files
+*   **File:** `client/src/pages/Login.tsx`.
+*   **Implementation:** Pre-flight check inside `handleSubmit` verifies `password.length >= 6` and sets `setError` immediately if it fails.
+*   **Trade-offs:** Redundant logic is maintained on front and back end, but provides a demonstrably superior user experience.

@@ -497,3 +497,11 @@ FocusFlow integrates directly with the Google Gemini API using native Node `fetc
 
 All forms in FocusFlow (Login, Task creation) employ the React Controlled Inputs pattern. 
 Component state is strictly bound to input values via `value` and `onChange` handlers.
+
+
+---
+# 18. Validation Strategy
+
+Validation occurs at both boundaries:
+*   **Client:** React state-based validation gives instant feedback (e.g. password length).
+*   **Backend:** Express middleware (`validate.ts`) guarantees integrity. Client validation does not replace backend validation.

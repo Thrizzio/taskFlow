@@ -293,3 +293,14 @@ To leverage an advanced LLM (Google Gemini) for unstructured productivity insigh
 
 ## Purpose
 Ensure that React acts as the single source of truth for user input, providing immediate responsiveness and synchronisation with layout state.
+
+
+---
+# 20. Client-Side Form Validation
+
+## Purpose
+To improve UX by catching obvious invalid inputs (e.g., short passwords) instantly before waiting for server responses.
+
+## Requirements
+*   Client validation enhances UX.
+*   Backend validation remains the fundamental security/trust boundary.
