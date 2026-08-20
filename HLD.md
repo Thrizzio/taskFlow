@@ -505,3 +505,9 @@ Component state is strictly bound to input values via `value` and `onChange` han
 Validation occurs at both boundaries:
 *   **Client:** React state-based validation gives instant feedback (e.g. password length).
 *   **Backend:** Express middleware (`validate.ts`) guarantees integrity. Client validation does not replace backend validation.
+
+
+---
+# 19. Asynchronous UI States
+
+Components fetching data maintain `isLoading` and `errorMsg` states, preventing blank screens or silent failures during network requests. The UI immediately reflects backend delays or downtimes.

@@ -304,3 +304,14 @@ To improve UX by catching obvious invalid inputs (e.g., short passwords) instant
 ## Requirements
 *   Client validation enhances UX.
 *   Backend validation remains the fundamental security/trust boundary.
+
+
+---
+# 21. Loading & Error UI States
+
+## Purpose
+Prevent user confusion during asynchronous network operations by clearly denoting activity and failure.
+
+## Requirements
+*   Display explicit loading indicators during API calls.
+*   Display human-readable error messages on failure.

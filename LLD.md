@@ -823,3 +823,11 @@ Environment variables are injected at container runtime and parsed in `server/sr
 *   **File:** `client/src/pages/Login.tsx`.
 *   **Implementation:** Pre-flight check inside `handleSubmit` verifies `password.length >= 6` and sets `setError` immediately if it fails.
 *   **Trade-offs:** Redundant logic is maintained on front and back end, but provides a demonstrably superior user experience.
+
+
+---
+# 24. Loading & Error UI States
+
+## Implementation & Relevant Files
+*   **File:** `client/src/pages/Tasks.tsx`
+*   **Flow:** `fetchTasks()` sets `setIsLoading(true)` natively, blocking empty list renders. A `finally` block ensures the loading state completes safely.

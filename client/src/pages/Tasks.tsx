@@ -46,6 +46,8 @@ export const Tasks = () => {
     const [statusFilter, setStatusFilter] = useState('all');
     const [title, setTitle] = useState('');
     const { token } = useAuth();
+    const [isLoading, setIsLoading] = useState(false);
+    const [errorMsg, setErrorMsg] = useState('');
 
     const fetchTasks = async () => {
         try {
