@@ -18,6 +18,7 @@ export const getTimeSpentPerUserPerTask = async (userId: string) => {
         ON t.user_id = u.id
     INNER JOIN analytics_sessions s 
         ON s.task_id = t.id
+    WHERE u.id = $1
     GROUP BY u.name, t.title
     ORDER BY "totalSeconds" DESC;
   `;
