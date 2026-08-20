@@ -457,3 +457,25 @@ Client                  Server
   |                        | extract user ID
   |<-- 200 OK -------------|
 ```
+
+
+---
+# 15. Backend Deployment
+
+The architecture uses a Node.js/Express backend packaged via Docker.
+
+```text
+Git Repository
+      |
+  multi-stage Docker build (server/Dockerfile)
+      |
+Production Container (Node.js runtime)
+      |
+      |-- env: MONGODB_URI       --> External MongoDB
+      |-- env: POSTGRES_URL      --> External PostgreSQL
+      |-- env: GEMINI_API_KEY    --> Google Gemini API
+```
+
+Anticipated challenges:
+*   **Environment Variables:** The container crashes gracefully if required DB strings aren't supplied at runtime.
+*   **Build-time dependencies:** Using a multi-stage build eliminates TypeScript from the final image, reducing size and attack surface.

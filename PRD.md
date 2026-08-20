@@ -267,3 +267,15 @@ Stateful user sessions require database lookups on every request, which is ineff
 *   Tokens must contain non-sensitive identity claims (user ID, name).
 *   Requests must include the token in the `Authorization` header.
 *   Invalid or missing tokens must receive a 401 response.
+
+
+---
+# 17. Backend Deployment Strategy
+
+## Purpose
+To provide a reproducible, environment-agnostic production deployment model.
+
+## Requirements
+*   The backend must be containerized using Docker.
+*   The container must not hold state or secrets.
+*   Database connections (MongoDB, PostgreSQL) must be external and configurable.

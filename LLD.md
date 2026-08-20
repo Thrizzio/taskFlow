@@ -779,3 +779,14 @@ To provide stateless, secure authentication.
 
 ## Design Reasoning
 Stateless tokens avoid managing server-side session stores, keeping the Express instances stateless.
+
+
+---
+# 20. Backend Deployment
+
+## Implementation & Relevant Files
+*   **Dockerfile:** `server/Dockerfile` implements a multi-stage build (`builder` stage for `tsc`, `production` stage for running `dist/index.js`).
+*   **Security:** Only the compiled `dist/` and runtime dependencies are copied into the final image.
+
+## Configuration Flow
+Environment variables are injected at container runtime and parsed in `server/src/utils/config.ts`, validating required keys before startup.
