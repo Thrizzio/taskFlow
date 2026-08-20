@@ -523,3 +523,9 @@ Layouts favor CSS Flexbox (e.g. `display: flex`). Embedded CSS media queries (e.
 # 21. SQL Grouped Analytics
 
 The `analytics_sessions` PostgreSQL table provides high-performance reporting. Queries filter down strictly to the requested user's workspace, group by foreign entities (tasks), sum metrics over sessions, and order natively at the DB level, preventing the application layer from caching and iterating over large session volumes.
+
+
+---
+# 22. Relational Indexes
+
+Keys frequently used in analytic `JOIN` and `WHERE` clauses are explicitly backed by PostgreSQL B-tree Indexes, shifting performance bottlenecks away from sequential table scans.

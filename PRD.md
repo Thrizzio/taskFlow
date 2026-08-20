@@ -329,3 +329,10 @@ The application must present a usable interface across desktop, tablet, and mobi
 
 ## Purpose
 To provide sophisticated user-level analytic reports leveraging native relational grouping logic.
+
+
+---
+# 24. PostgreSQL Indexing
+
+## Purpose
+To maintain fast analytic query times even as session logs grow exponentially.

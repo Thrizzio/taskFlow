@@ -852,3 +852,14 @@ Environment variables are injected at container runtime and parsed in `server/sr
     *   `GROUP BY u.name, t.title` (Rolls up multiple session logs into distinct Task rows).
     *   `SUM(s.duration)` (Aggregation function).
     *   `ORDER BY "totalSeconds" DESC` (Sorting workload executed in DB).
+
+
+---
+# 27. PostgreSQL Indexing for Performance
+
+## Implementation & Relevant Files
+*   **File:** `server/src/db/pg.ts`.
+*   **Indexes Created:**
+    *   `idx_analytics_sessions_user_id` on `analytics_sessions(user_id)`
+    *   `idx_analytics_sessions_task_id` on `analytics_sessions(task_id)`
+*   **Justification:** The analytics query filters heavily on `user_id` and joins on `task_id`. Without these indexes, counting or aggregating sessions would devolve into sequential scans over potentially gigabytes of chronological session data.
