@@ -839,3 +839,16 @@ Environment variables are injected at container runtime and parsed in `server/sr
 ## Implementation & Relevant Files
 *   **File:** `client/src/pages/Tasks.tsx`.
 *   **Methodology:** Uses inline `<style>` tags setting `flex-direction: column` for `.task-card` and `.header-container` classes below 600px width. Maintains simple structure without large framework dependencies.
+
+
+---
+# 26. SQL Filtering, Ordering, Grouping
+
+## Implementation & Relevant Files
+*   **File:** `server/src/db/queries/analyticsQueries.ts`.
+*   **Role:** `getTimeSpentPerUserPerTask(userId)`.
+*   **Query Operations:** 
+    *   `WHERE u.id = $1` (Parameterized, SQL Injection proof filtering).
+    *   `GROUP BY u.name, t.title` (Rolls up multiple session logs into distinct Task rows).
+    *   `SUM(s.duration)` (Aggregation function).
+    *   `ORDER BY "totalSeconds" DESC` (Sorting workload executed in DB).

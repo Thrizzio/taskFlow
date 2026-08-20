@@ -322,3 +322,10 @@ Prevent user confusion during asynchronous network operations by clearly denotin
 
 ## Requirement
 The application must present a usable interface across desktop, tablet, and mobile orientations without requiring a full desktop viewport.
+
+
+---
+# 23. PostgreSQL Grouping & Ordering
+
+## Purpose
+To provide sophisticated user-level analytic reports leveraging native relational grouping logic.

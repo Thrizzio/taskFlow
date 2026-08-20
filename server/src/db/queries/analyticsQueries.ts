@@ -7,7 +7,7 @@ import { pool } from '../pg';
  * but performance-optimally want a consolidated report of 'How much time 
  * did each user spend on each task?'.
  */
-export const getTimeSpentPerUserPerTask = async () => {
+export const getTimeSpentPerUserPerTask = async (userId: string) => {
     const query = `
     SELECT
         u.name AS "userName",
@@ -21,6 +21,6 @@ export const getTimeSpentPerUserPerTask = async () => {
     GROUP BY u.name, t.title
     ORDER BY "totalSeconds" DESC;
   `;
-    const result = await pool.query(query);
+    const result = await pool.query(query, [userId]);
     return result.rows;
 };

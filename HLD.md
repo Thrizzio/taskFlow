@@ -517,3 +517,9 @@ Components fetching data maintain `isLoading` and `errorMsg` states, preventing 
 # 20. Responsive Design
 
 Layouts favor CSS Flexbox (e.g. `display: flex`). Embedded CSS media queries (e.g. `max-width: 600px`) adapt these directional layouts into vertical stacks on narrow viewports.
+
+
+---
+# 21. SQL Grouped Analytics
+
+The `analytics_sessions` PostgreSQL table provides high-performance reporting. Queries filter down strictly to the requested user's workspace, group by foreign entities (tasks), sum metrics over sessions, and order natively at the DB level, preventing the application layer from caching and iterating over large session volumes.
