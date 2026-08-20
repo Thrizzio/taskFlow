@@ -437,3 +437,95 @@ Task collection
 Unqueried fields (`status`, `duration`, `startedAt`) are not indexed because no query filters or sorts on these fields alone.
 
 
+
+
+---
+# 14. JWT Authentication Flow
+
+Authentication relies on stateless JWTs issued upon login/registration.
+
+```text
+Client                  Server
+  |                        |
+  |--- POST /login ------->|
+  |                        | verify credentials
+  |<-- JWT (7d expiry) ----|
+  |                        |
+  |--- GET /tasks -------->|
+  |    Authorization: Bearer <jwt>
+  |                        | validate signature using config.JWT_SECRET
+  |                        | extract user ID
+  |<-- 200 OK -------------|
+```
+
+
+---
+# 15. Backend Deployment
+
+The architecture uses a Node.js/Express backend packaged via Docker.
+
+```text
+Git Repository
+      |
+  multi-stage Docker build (server/Dockerfile)
+      |
+Production Container (Node.js runtime)
+      |
+      |-- env: MONGODB_URI       --> External MongoDB
+      |-- env: POSTGRES_URL      --> External PostgreSQL
+      |-- env: GEMINI_API_KEY    --> Google Gemini API
+```
+
+Anticipated challenges:
+*   **Environment Variables:** The container crashes gracefully if required DB strings aren't supplied at runtime.
+*   **Build-time dependencies:** Using a multi-stage build eliminates TypeScript from the final image, reducing size and attack surface.
+
+
+---
+# 16. Gemini API Integration
+
+FocusFlow integrates directly with the Google Gemini API using native Node `fetch`.
+
+*   **Request Construction:** A prompt combining the user request and system instruction is sent along with `TOOL_DECLARATIONS`.
+*   **Response Parsing:** Extracts JSON function calls or text content.
+*   **Token Monitoring:** Reads `usageMetadata`.
+*   **Error Handling:** In the event of network failure or missing API key, the system executes a deterministic fallback, ensuring the workflow continues. API keys are never hard-coded.
+
+
+---
+# 17. Controlled Form Handling
+
+All forms in FocusFlow (Login, Task creation) employ the React Controlled Inputs pattern. 
+Component state is strictly bound to input values via `value` and `onChange` handlers.
+
+
+---
+# 18. Validation Strategy
+
+Validation occurs at both boundaries:
+*   **Client:** React state-based validation gives instant feedback (e.g. password length).
+*   **Backend:** Express middleware (`validate.ts`) guarantees integrity. Client validation does not replace backend validation.
+
+
+---
+# 19. Asynchronous UI States
+
+Components fetching data maintain `isLoading` and `errorMsg` states, preventing blank screens or silent failures during network requests. The UI immediately reflects backend delays or downtimes.
+
+
+---
+# 20. Responsive Design
+
+Layouts favor CSS Flexbox (e.g. `display: flex`). Embedded CSS media queries (e.g. `max-width: 600px`) adapt these directional layouts into vertical stacks on narrow viewports.
+
+
+---
+# 21. SQL Grouped Analytics
+
+The `analytics_sessions` PostgreSQL table provides high-performance reporting. Queries filter down strictly to the requested user's workspace, group by foreign entities (tasks), sum metrics over sessions, and order natively at the DB level, preventing the application layer from caching and iterating over large session volumes.
+
+
+---
+# 22. Relational Indexes
+
+Keys frequently used in analytic `JOIN` and `WHERE` clauses are explicitly backed by PostgreSQL B-tree Indexes, shifting performance bottlenecks away from sequential table scans.

@@ -4,7 +4,8 @@ import { getTimeSpentPerUserPerTask } from '../db/queries/analyticsQueries';
 
 export const getAnalytics = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const data = await getTimeSpentPerUserPerTask();
+        const userId = req.user!.userId;
+        const data = await getTimeSpentPerUserPerTask(userId);
         res.json(data);
     } catch (error) {
         console.error('getAnalytics error:', error);

@@ -762,3 +762,104 @@ focusSessionSchema.index({ userId: 1, taskId: 1 });
 `Task.userId` already has `{ index: true }` defined inline in `Task.ts`. No change was needed.
 
 
+
+
+---
+# 19. JWT Issuance & Verification
+
+## Purpose
+To provide stateless, secure authentication.
+
+## Implementation & Relevant Files
+*   **Issuance:** `server/src/controllers/authController.ts` (`login` and `register`). Creates a JWT using `jsonwebtoken.sign`.
+*   **Claims:** `{ userId: user._id, name: user.name }` are embedded.
+*   **Verification:** `server/src/middleware/auth.ts` extracts the token from the `Bearer` header, calls `jwt.verify()` with `config.JWT_SECRET`, and attaches `req.user`.
+*   **Configuration:** `server/src/utils/config.ts` loads `JWT_SECRET` from the environment.
+*   **Fallback:** Returns 401 if token is missing/invalid.
+
+## Design Reasoning
+Stateless tokens avoid managing server-side session stores, keeping the Express instances stateless.
+
+
+---
+# 20. Backend Deployment
+
+## Implementation & Relevant Files
+*   **Dockerfile:** `server/Dockerfile` implements a multi-stage build (`builder` stage for `tsc`, `production` stage for running `dist/index.js`).
+*   **Security:** Only the compiled `dist/` and runtime dependencies are copied into the final image.
+
+## Configuration Flow
+Environment variables are injected at container runtime and parsed in `server/src/utils/config.ts`, validating required keys before startup.
+
+
+---
+# 21. 3rd-Party API Integration (Gemini)
+
+## Implementation & Relevant Files
+*   **File:** `server/src/agent/llmInsight.ts`.
+*   **Method:** Uses standard `fetch` to `https://generativelanguage.googleapis.com/v1beta/...`.
+*   **Cost Calculation:** Extracts `usageMetadata.promptTokenCount` and uses constants in `config.ts` to calculate estimated cost.
+*   **Graceful Degradation:** If `GEMINI_API_KEY` is empty or a network error occurs, it returns a static fallback insight (`priority: 'unknown'`).
+
+
+---
+# 22. Form Handling — Controlled Inputs
+
+## Implementation & Relevant Files
+*   **Files:** `client/src/pages/Login.tsx` and `Tasks.tsx`.
+*   **Pattern:**
+    ```tsx
+    const [title, setTitle] = useState('');
+    // ...
+    <input value={title} onChange={(e) => setTitle(e.target.value)} />
+    ```
+*   **Benefit:** React retains full authority over the form. Submitting relies on current state, not DOM reading.
+
+
+---
+# 23. Form Validation (Client-Side)
+
+## Implementation & Relevant Files
+*   **File:** `client/src/pages/Login.tsx`.
+*   **Implementation:** Pre-flight check inside `handleSubmit` verifies `password.length >= 6` and sets `setError` immediately if it fails.
+*   **Trade-offs:** Redundant logic is maintained on front and back end, but provides a demonstrably superior user experience.
+
+
+---
+# 24. Loading & Error UI States
+
+## Implementation & Relevant Files
+*   **File:** `client/src/pages/Tasks.tsx`
+*   **Flow:** `fetchTasks()` sets `setIsLoading(true)` natively, blocking empty list renders. A `finally` block ensures the loading state completes safely.
+
+
+---
+# 25. Responsive Layout & Styling
+
+## Implementation & Relevant Files
+*   **File:** `client/src/pages/Tasks.tsx`.
+*   **Methodology:** Uses inline `<style>` tags setting `flex-direction: column` for `.task-card` and `.header-container` classes below 600px width. Maintains simple structure without large framework dependencies.
+
+
+---
+# 26. SQL Filtering, Ordering, Grouping
+
+## Implementation & Relevant Files
+*   **File:** `server/src/db/queries/analyticsQueries.ts`.
+*   **Role:** `getTimeSpentPerUserPerTask(userId)`.
+*   **Query Operations:** 
+    *   `WHERE u.id = $1` (Parameterized, SQL Injection proof filtering).
+    *   `GROUP BY u.name, t.title` (Rolls up multiple session logs into distinct Task rows).
+    *   `SUM(s.duration)` (Aggregation function).
+    *   `ORDER BY "totalSeconds" DESC` (Sorting workload executed in DB).
+
+
+---
+# 27. PostgreSQL Indexing for Performance
+
+## Implementation & Relevant Files
+*   **File:** `server/src/db/pg.ts`.
+*   **Indexes Created:**
+    *   `idx_analytics_sessions_user_id` on `analytics_sessions(user_id)`
+    *   `idx_analytics_sessions_task_id` on `analytics_sessions(task_id)`
+*   **Justification:** The analytics query filters heavily on `user_id` and joins on `task_id`. Without these indexes, counting or aggregating sessions would devolve into sequential scans over potentially gigabytes of chronological session data.

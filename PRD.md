@@ -254,3 +254,85 @@ FocusFlow adds explicit MongoDB indexes to the `FocusSession` collection on the 
 * Index definitions must be co-located with the Mongoose schema.
 
 
+
+
+---
+# 16. JWT Issuance & Verification
+
+## Purpose
+Stateful user sessions require database lookups on every request, which is inefficient. FocusFlow uses JSON Web Tokens (JWT) for stateless authentication.
+
+## Requirements
+*   Tokens must be signed with a secure secret loaded from config.
+*   Tokens must contain non-sensitive identity claims (user ID, name).
+*   Requests must include the token in the `Authorization` header.
+*   Invalid or missing tokens must receive a 401 response.
+
+
+---
+# 17. Backend Deployment Strategy
+
+## Purpose
+To provide a reproducible, environment-agnostic production deployment model.
+
+## Requirements
+*   The backend must be containerized using Docker.
+*   The container must not hold state or secrets.
+*   Database connections (MongoDB, PostgreSQL) must be external and configurable.
+
+
+---
+# 18. 3rd-Party API Integration (Gemini)
+
+## Purpose
+To leverage an advanced LLM (Google Gemini) for unstructured productivity insight generation, returning zero tokens when missing credentials to avoid failure.
+
+
+---
+# 19. Controlled Form Inputs
+
+## Purpose
+Ensure that React acts as the single source of truth for user input, providing immediate responsiveness and synchronisation with layout state.
+
+
+---
+# 20. Client-Side Form Validation
+
+## Purpose
+To improve UX by catching obvious invalid inputs (e.g., short passwords) instantly before waiting for server responses.
+
+## Requirements
+*   Client validation enhances UX.
+*   Backend validation remains the fundamental security/trust boundary.
+
+
+---
+# 21. Loading & Error UI States
+
+## Purpose
+Prevent user confusion during asynchronous network operations by clearly denoting activity and failure.
+
+## Requirements
+*   Display explicit loading indicators during API calls.
+*   Display human-readable error messages on failure.
+
+
+---
+# 22. Responsive Layout
+
+## Requirement
+The application must present a usable interface across desktop, tablet, and mobile orientations without requiring a full desktop viewport.
+
+
+---
+# 23. PostgreSQL Grouping & Ordering
+
+## Purpose
+To provide sophisticated user-level analytic reports leveraging native relational grouping logic.
+
+
+---
+# 24. PostgreSQL Indexing
+
+## Purpose
+To maintain fast analytic query times even as session logs grow exponentially.
