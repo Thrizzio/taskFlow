@@ -800,3 +800,17 @@ Environment variables are injected at container runtime and parsed in `server/sr
 *   **Method:** Uses standard `fetch` to `https://generativelanguage.googleapis.com/v1beta/...`.
 *   **Cost Calculation:** Extracts `usageMetadata.promptTokenCount` and uses constants in `config.ts` to calculate estimated cost.
 *   **Graceful Degradation:** If `GEMINI_API_KEY` is empty or a network error occurs, it returns a static fallback insight (`priority: 'unknown'`).
+
+
+---
+# 22. Form Handling — Controlled Inputs
+
+## Implementation & Relevant Files
+*   **Files:** `client/src/pages/Login.tsx` and `Tasks.tsx`.
+*   **Pattern:**
+    ```tsx
+    const [title, setTitle] = useState('');
+    // ...
+    <input value={title} onChange={(e) => setTitle(e.target.value)} />
+    ```
+*   **Benefit:** React retains full authority over the form. Submitting relies on current state, not DOM reading.

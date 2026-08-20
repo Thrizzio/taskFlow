@@ -286,3 +286,10 @@ To provide a reproducible, environment-agnostic production deployment model.
 
 ## Purpose
 To leverage an advanced LLM (Google Gemini) for unstructured productivity insight generation, returning zero tokens when missing credentials to avoid failure.
+
+
+---
+# 19. Controlled Form Inputs
+
+## Purpose
+Ensure that React acts as the single source of truth for user input, providing immediate responsiveness and synchronisation with layout state.

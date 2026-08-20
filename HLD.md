@@ -490,3 +490,10 @@ FocusFlow integrates directly with the Google Gemini API using native Node `fetc
 *   **Response Parsing:** Extracts JSON function calls or text content.
 *   **Token Monitoring:** Reads `usageMetadata`.
 *   **Error Handling:** In the event of network failure or missing API key, the system executes a deterministic fallback, ensuring the workflow continues. API keys are never hard-coded.
+
+
+---
+# 17. Controlled Form Handling
+
+All forms in FocusFlow (Login, Task creation) employ the React Controlled Inputs pattern. 
+Component state is strictly bound to input values via `value` and `onChange` handlers.
