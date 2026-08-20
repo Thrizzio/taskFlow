@@ -104,7 +104,22 @@ export const Tasks = () => {
 
     return (
         <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '800px', margin: '0 auto' }}>
-            <header style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
+            <style>
+                {`
+                @media (max-width: 600px) {
+                    .task-card {
+                        flex-direction: column !important;
+                        gap: 12px;
+                    }
+                    .header-container {
+                        flex-direction: column !important;
+                        align-items: flex-start !important;
+                        gap: 10px;
+                    }
+                }
+                `}
+            </style>
+            <header className="header-container" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
                 <h2>Task Management</h2>
                 <Link to="/dashboard">Back to Dashboard</Link>
             </header>

@@ -831,3 +831,11 @@ Environment variables are injected at container runtime and parsed in `server/sr
 ## Implementation & Relevant Files
 *   **File:** `client/src/pages/Tasks.tsx`
 *   **Flow:** `fetchTasks()` sets `setIsLoading(true)` natively, blocking empty list renders. A `finally` block ensures the loading state completes safely.
+
+
+---
+# 25. Responsive Layout & Styling
+
+## Implementation & Relevant Files
+*   **File:** `client/src/pages/Tasks.tsx`.
+*   **Methodology:** Uses inline `<style>` tags setting `flex-direction: column` for `.task-card` and `.header-container` classes below 600px width. Maintains simple structure without large framework dependencies.

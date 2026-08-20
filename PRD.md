@@ -315,3 +315,10 @@ Prevent user confusion during asynchronous network operations by clearly denotin
 ## Requirements
 *   Display explicit loading indicators during API calls.
 *   Display human-readable error messages on failure.
+
+
+---
+# 22. Responsive Layout
+
+## Requirement
+The application must present a usable interface across desktop, tablet, and mobile orientations without requiring a full desktop viewport.

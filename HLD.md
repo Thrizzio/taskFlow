@@ -511,3 +511,9 @@ Validation occurs at both boundaries:
 # 19. Asynchronous UI States
 
 Components fetching data maintain `isLoading` and `errorMsg` states, preventing blank screens or silent failures during network requests. The UI immediately reflects backend delays or downtimes.
+
+
+---
+# 20. Responsive Design
+
+Layouts favor CSS Flexbox (e.g. `display: flex`). Embedded CSS media queries (e.g. `max-width: 600px`) adapt these directional layouts into vertical stacks on narrow viewports.
