@@ -790,3 +790,13 @@ Stateless tokens avoid managing server-side session stores, keeping the Express 
 
 ## Configuration Flow
 Environment variables are injected at container runtime and parsed in `server/src/utils/config.ts`, validating required keys before startup.
+
+
+---
+# 21. 3rd-Party API Integration (Gemini)
+
+## Implementation & Relevant Files
+*   **File:** `server/src/agent/llmInsight.ts`.
+*   **Method:** Uses standard `fetch` to `https://generativelanguage.googleapis.com/v1beta/...`.
+*   **Cost Calculation:** Extracts `usageMetadata.promptTokenCount` and uses constants in `config.ts` to calculate estimated cost.
+*   **Graceful Degradation:** If `GEMINI_API_KEY` is empty or a network error occurs, it returns a static fallback insight (`priority: 'unknown'`).

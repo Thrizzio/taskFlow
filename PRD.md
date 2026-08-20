@@ -279,3 +279,10 @@ To provide a reproducible, environment-agnostic production deployment model.
 *   The backend must be containerized using Docker.
 *   The container must not hold state or secrets.
 *   Database connections (MongoDB, PostgreSQL) must be external and configurable.
+
+
+---
+# 18. 3rd-Party API Integration (Gemini)
+
+## Purpose
+To leverage an advanced LLM (Google Gemini) for unstructured productivity insight generation, returning zero tokens when missing credentials to avoid failure.

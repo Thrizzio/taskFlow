@@ -479,3 +479,14 @@ Production Container (Node.js runtime)
 Anticipated challenges:
 *   **Environment Variables:** The container crashes gracefully if required DB strings aren't supplied at runtime.
 *   **Build-time dependencies:** Using a multi-stage build eliminates TypeScript from the final image, reducing size and attack surface.
+
+
+---
+# 16. Gemini API Integration
+
+FocusFlow integrates directly with the Google Gemini API using native Node `fetch`.
+
+*   **Request Construction:** A prompt combining the user request and system instruction is sent along with `TOOL_DECLARATIONS`.
+*   **Response Parsing:** Extracts JSON function calls or text content.
+*   **Token Monitoring:** Reads `usageMetadata`.
+*   **Error Handling:** In the event of network failure or missing API key, the system executes a deterministic fallback, ensuring the workflow continues. API keys are never hard-coded.
