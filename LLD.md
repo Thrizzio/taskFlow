@@ -762,3 +762,20 @@ focusSessionSchema.index({ userId: 1, taskId: 1 });
 `Task.userId` already has `{ index: true }` defined inline in `Task.ts`. No change was needed.
 
 
+
+
+---
+# 19. JWT Issuance & Verification
+
+## Purpose
+To provide stateless, secure authentication.
+
+## Implementation & Relevant Files
+*   **Issuance:** `server/src/controllers/authController.ts` (`login` and `register`). Creates a JWT using `jsonwebtoken.sign`.
+*   **Claims:** `{ userId: user._id, name: user.name }` are embedded.
+*   **Verification:** `server/src/middleware/auth.ts` extracts the token from the `Bearer` header, calls `jwt.verify()` with `config.JWT_SECRET`, and attaches `req.user`.
+*   **Configuration:** `server/src/utils/config.ts` loads `JWT_SECRET` from the environment.
+*   **Fallback:** Returns 401 if token is missing/invalid.
+
+## Design Reasoning
+Stateless tokens avoid managing server-side session stores, keeping the Express instances stateless.

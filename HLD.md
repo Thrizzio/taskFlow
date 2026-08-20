@@ -437,3 +437,23 @@ Task collection
 Unqueried fields (`status`, `duration`, `startedAt`) are not indexed because no query filters or sorts on these fields alone.
 
 
+
+
+---
+# 14. JWT Authentication Flow
+
+Authentication relies on stateless JWTs issued upon login/registration.
+
+```text
+Client                  Server
+  |                        |
+  |--- POST /login ------->|
+  |                        | verify credentials
+  |<-- JWT (7d expiry) ----|
+  |                        |
+  |--- GET /tasks -------->|
+  |    Authorization: Bearer <jwt>
+  |                        | validate signature using config.JWT_SECRET
+  |                        | extract user ID
+  |<-- 200 OK -------------|
+```

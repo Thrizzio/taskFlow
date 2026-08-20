@@ -254,3 +254,16 @@ FocusFlow adds explicit MongoDB indexes to the `FocusSession` collection on the 
 * Index definitions must be co-located with the Mongoose schema.
 
 
+
+
+---
+# 16. JWT Issuance & Verification
+
+## Purpose
+Stateful user sessions require database lookups on every request, which is inefficient. FocusFlow uses JSON Web Tokens (JWT) for stateless authentication.
+
+## Requirements
+*   Tokens must be signed with a secure secret loaded from config.
+*   Tokens must contain non-sensitive identity claims (user ID, name).
+*   Requests must include the token in the `Authorization` header.
+*   Invalid or missing tokens must receive a 401 response.
