@@ -7,6 +7,7 @@ import taskRoutes from './routes/taskRoutes';
 import sessionRoutes from './routes/sessionRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
 import agentRoutes from './routes/agentRoutes';
+import adminRoutes from './routes/adminRoutes';
 import { initPgDB } from './db/pg';
 import { sanitizeRequest } from './middleware/sanitize';
 validateEnv();
@@ -22,6 +23,7 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/focus-sessions', sessionRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/agent', agentRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Add simple health check
 app.get('/api/health', (req, res) => {
