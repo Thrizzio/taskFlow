@@ -1,7 +1,12 @@
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { Task } from '../models/Task';
 import { sanitizeString } from '../utils/sanitize';
+import { isSafeFilePath } from '../middleware/upload';
+import config from '../utils/config';
 
 export const getTasks = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -91,5 +96,116 @@ export const deleteTask = async (req: AuthRequest, res: Response): Promise<void>
     } catch (error) {
         console.error('deleteTask error:', error);
         res.status(500).json({ error: 'Failed to delete task' });
+    }
+};
+
+export const uploadTaskAttachment = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const task = await Task.findOne({ _id: req.params.taskId, userId: req.user?.userId });
+        if (!task) {
+            res.status(404).json({ error: 'Task not found' });
+            return;
+        }
+
+        if (!req.file) {
+            res.status(400).json({ error: 'No file uploaded' });
+            return;
+        }
+
+        const attachment = {
+            id: crypto.randomUUID(),
+            originalName: sanitizeString(req.file.originalname),
+            filename: req.file.filename,
+            mimeType: req.file.mimetype,
+            size: req.file.size,
+            uploadedAt: new Date(),
+        };
+
+        (task as any).attachments = (task as any).attachments || [];
+        (task as any).attachments.push(attachment);
+        await task.save();
+
+        res.status(201).json(attachment);
+    } catch (error) {
+        console.error('uploadTaskAttachment error:', error);
+        res.status(500).json({ error: 'Failed to upload attachment' });
+    }
+};
+
+export const getTaskAttachments = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const task = await Task.findOne({ _id: req.params.taskId, userId: req.user?.userId });
+        if (!task) {
+            res.status(404).json({ error: 'Task not found' });
+            return;
+        }
+        res.status(200).json((task as any).attachments || []);
+    } catch (error) {
+        console.error('getTaskAttachments error:', error);
+        res.status(500).json({ error: 'Failed to fetch attachments' });
+    }
+};
+
+export const downloadTaskAttachment = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const task = await Task.findOne({ _id: req.params.taskId, userId: req.user?.userId });
+        if (!task) {
+            res.status(404).json({ error: 'Task not found' });
+            return;
+        }
+
+        const attachments = (task as any).attachments || [];
+        const attachment = attachments.find((a: any) => a.id === req.params.attachmentId);
+        if (!attachment) {
+            res.status(404).json({ error: 'Attachment not found' });
+            return;
+        }
+
+        const filePath = path.join(config.UPLOAD_DIR, attachment.filename);
+
+        // Enforce strict path traversal prevention
+        if (!isSafeFilePath(config.UPLOAD_DIR, filePath)) {
+            res.status(400).json({ error: 'Invalid file path traversal detected' });
+            return;
+        }
+
+        if (!fs.existsSync(filePath)) {
+            res.status(404).json({ error: 'File not found on storage' });
+            return;
+        }
+
+        res.download(filePath, attachment.originalName);
+    } catch (error) {
+        console.error('downloadTaskAttachment error:', error);
+        res.status(500).json({ error: 'Failed to download attachment' });
+    }
+};
+
+export const deleteTaskAttachment = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const task = await Task.findOne({ _id: req.params.taskId, userId: req.user?.userId });
+        if (!task) {
+            res.status(404).json({ error: 'Task not found' });
+            return;
+        }
+
+        const attachments = (task as any).attachments || [];
+        const attachmentIndex = attachments.findIndex((a: any) => a.id === req.params.attachmentId);
+        if (attachmentIndex === -1) {
+            res.status(404).json({ error: 'Attachment not found' });
+            return;
+        }
+
+        const [removed] = attachments.splice(attachmentIndex, 1);
+        const filePath = path.join(config.UPLOAD_DIR, removed.filename);
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+
+        await task.save();
+        res.status(200).json({ message: 'Attachment deleted successfully' });
+    } catch (error) {
+        console.error('deleteTaskAttachment error:', error);
+        res.status(500).json({ error: 'Failed to delete attachment' });
     }
 };

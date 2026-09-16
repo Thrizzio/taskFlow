@@ -1,4 +1,4 @@
-import dotenv from 'dotenv';
+import path from 'path';
 dotenv.config();
 
 const config = {
@@ -14,6 +14,9 @@ const config = {
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback',
+
+  // File Upload storage directory
+  UPLOAD_DIR: process.env.UPLOAD_DIR || path.resolve(__dirname, '../../uploads'),
 
   // ── Gemini pricing assumptions ────────────────────────────────────────────
   // Source: Google AI pricing for gemini-2.0-flash-lite (per 1,000 tokens).
