@@ -1,32 +1,54 @@
-# React + TypeScript + Vite
+# TaskFlow Client — Frontend Application
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Production React Single-Page Application (SPA) built with Vite, TypeScript, React Router, and Socket.IO Client.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🌟 Key Features
 
-## React Compiler
+* **Real-Time Task Synchronization:** Powered by `SocketContext` and `socket.io-client`. Automatically updates task status, additions, and deletions without requiring HTTP polling.
+* **Controlled Forms & UX Validation:** Real-time client-side feedback for task creation, authentication, and file attachment handling.
+* **Responsive Layout:** Adaptive Flexbox layout styling tested across desktop and mobile screens (`max-width: 600px`).
+* **Interactive Demonstrations:** Dedicated `/javascript-concepts` educational suite exploring Closures, the Event Loop, Hoisting, and Promises vs Callbacks.
+* **Production Nginx Container:** Multi-stage `Dockerfile` producing a lean, hardened static distribution container with SPA route fallback and security headers.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the Oxlint configuration
+## 🚀 Environment Configuration
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+Create a `.env` file from `.env.example`:
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+cp .env.example .env
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+| Variable | Description | Default |
+|---|---|---|
+| `VITE_API_URL` | Base HTTP & WebSocket URL for the Express backend API | `http://localhost:4000` |
+
+---
+
+## 💻 Available Scripts
+
+* `npm run dev`: Starts the local development server with Hot Module Replacement (HMR) at `http://localhost:5173`.
+* `npm run build`: Type-checks (`tsc -b`) and bundles production assets into `dist/` with Vite.
+* `npm run lint`: Runs `oxlint` static code analysis.
+* `npm run preview`: Locally previews the compiled production build.
+
+---
+
+## 🐳 Docker Deployment
+
+The client includes a multi-stage Docker build:
+
+```bash
+# Build production image
+docker build -t taskflow-client .
+
+# Run container on port 8080
+docker run -d -p 8080:80 -e VITE_API_URL=http://localhost:4000 taskflow-client
+```
+
+### Nginx SPA Configuration (`nginx.conf`)
+* **SPA Fallback:** `try_files $uri $uri/ /index.html` resolves client-side deep links (e.g. `/tasks`, `/analytics`).
+* **Security Headers:** Enforces `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, and `X-XSS-Protection: 1; mode=block`.

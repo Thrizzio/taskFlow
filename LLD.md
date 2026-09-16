@@ -19,6 +19,16 @@
 | Unit tests                      | `server/src/tests/unit/`                                         |
 | Integration tests               | `server/src/tests/integration/`                                  |
 | MongoDB indexing                | `server/src/models/FocusSession.ts`                              |
+| Input Sanitization & Injection  | `server/src/utils/sanitize.ts`, `server/src/middleware/sanitize.ts` |
+| OAuth 2.0 3rd-Party Login       | `server/src/utils/oauth.ts`, `server/src/controllers/authController.ts` |
+| Role-Based Authorization (RBAC) | `server/src/middleware/role.ts`, `server/src/controllers/adminController.ts` |
+| File Upload Handling & Security | `server/src/middleware/upload.ts`, `server/src/controllers/taskController.ts` |
+| Frontend Container Deployment   | `client/Dockerfile`, `client/nginx.conf`, `client/src/config/api.ts` |
+| ORM Usage (Prisma)              | `server/prisma/schema.prisma`, `server/src/db/prisma.ts`         |
+| Database Transactions (ACID)    | `server/src/controllers/sessionController.ts` (`persistAnalyticsSessionTx`) |
+| Redis Caching (Cache-Aside)     | `server/src/utils/redis.ts`, `server/src/controllers/analyticsController.ts` |
+| Scheduled Cron Maintenance      | `server/src/jobs/cleanupJob.ts`, `server/src/jobs/scheduler.ts`  |
+| WebSocket Real-Time Sync        | `server/src/socket.ts`, `client/src/context/SocketContext.tsx`   |
 
 ---
 
@@ -863,3 +873,361 @@ Environment variables are injected at container runtime and parsed in `server/sr
     *   `idx_analytics_sessions_user_id` on `analytics_sessions(user_id)`
     *   `idx_analytics_sessions_task_id` on `analytics_sessions(task_id)`
 *   **Justification:** The analytics query filters heavily on `user_id` and joins on `task_id`. Without these indexes, counting or aggregating sessions would devolve into sequential scans over potentially gigabytes of chronological session data.
+
+
+---
+# 28. Input Sanitization & Injection Defense
+
+## Implementation & Relevant Files
+*   **Files:** `server/src/utils/sanitize.ts`, `server/src/middleware/sanitize.ts`, `server/src/controllers/taskController.ts`.
+*   **Middleware Integration:** `app.use(sanitizeRequest)` registered globally in `server/src/index.ts` and `server/src/testApp.ts`.
+
+## Key Code Architecture
+```typescript
+// Strip MongoDB operator injection ($gt, $ne, $where, etc.)
+export function sanitizeMongoInput<T>(input: T): T {
+    if (Array.isArray(input)) return input.map(sanitizeMongoInput) as unknown as T;
+    if (input !== null && typeof input === 'object') {
+        const clean: Record<string, any> = {};
+        for (const [key, value] of Object.entries(input)) {
+            if (key.startsWith('$') || key.includes('.')) continue; // Strip operator keys
+            clean[key] = sanitizeMongoInput(value);
+        }
+        return clean as T;
+    }
+    return input;
+}
+
+// Escape HTML control characters to block XSS
+export function sanitizeString(input: string): string {
+    return input
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
+```
+
+## Viva Explanation: Validation vs Sanitization
+*   **Validation** is the gatekeeper that checks whether input matches expected shape, data type, length, or constraints (e.g. `password must be at least 6 characters`). If invalid, the request is **rejected** with an error (HTTP 400).
+*   **Sanitization** is the transformer that cleanses or neutralizes dangerous characters from input before it reaches storage or output sinks (e.g. stripping `$` from query objects or escaping `<script>` into `&lt;script&gt;`).
+*   **Why both?** Validation ensures logical contract compliance; sanitization provides defense-in-depth against malicious payloads that conform syntactically to the contract.
+
+
+---
+# 29. Third-Party OAuth 2.0 Authentication
+
+## Implementation & Relevant Files
+*   **Files:** `server/src/utils/oauth.ts`, `server/src/controllers/authController.ts`, `server/src/routes/authRoutes.ts`, `server/src/models/User.ts`.
+*   **Endpoints:** `GET /api/auth/google/url`, `POST /api/auth/google/callback`.
+
+## Key Code Architecture
+```typescript
+// Authorization Code exchange with Google Token Endpoint
+export async function exchangeCodeForGoogleUser(code: string): Promise<GoogleUser> {
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            code,
+            client_id: config.GOOGLE_CLIENT_ID || '',
+            client_secret: config.GOOGLE_CLIENT_SECRET || '',
+            redirect_uri: config.GOOGLE_CALLBACK_URL || '',
+            grant_type: 'authorization_code',
+        }),
+    });
+    const tokens = await tokenRes.json();
+    // Fetch verified profile using access token...
+}
+```
+
+## Viva Explanation: Authorization Code Flow
+*   The client redirects the browser to Google's consent screen.
+*   Google redirects back with a short-lived, single-use **authorization code**.
+*   The server exchanges the authorization code for an `access_token` and `id_token` directly with Google over back-channel HTTPS, utilizing the `client_secret`.
+*   The `client_secret` is never exposed to the frontend, preventing token theft and spoofing.
+
+
+---
+# 30. Role-Based Access Control (RBAC)
+
+## Implementation & Relevant Files
+*   **Files:** `server/src/middleware/role.ts`, `server/src/middleware/auth.ts`, `server/src/controllers/adminController.ts`, `server/src/routes/adminRoutes.ts`.
+*   **User Schema:** `server/src/models/User.ts` (field `role: { type: String, enum: ['user', 'admin'], default: 'user' }`).
+
+## Key Code Architecture
+```typescript
+export function requireRole(...allowedRoles: ('user' | 'admin')[]) {
+    return (req: AuthRequest, res: Response, next: NextFunction): void => {
+        if (!req.user) {
+            res.status(401).json({ error: 'Unauthorized: authentication required' });
+            return;
+        }
+        if (!allowedRoles.includes(req.user.role)) {
+            res.status(403).json({ error: 'Forbidden: insufficient role permissions' });
+            return;
+        }
+        next();
+    };
+}
+```
+
+## Viva Explanation: Authentication vs Authorization
+*   **Authentication (AuthN):** Confirms identity (*Who are you?*). Handled by `authenticate` middleware by verifying the cryptographic signature of the JWT bearer token.
+*   **Authorization (AuthZ):** Confirms permissions (*What are you allowed to do?*). Handled by `requireRole('admin')` by inspecting the role claim stored within the decoded token.
+*   **HTTP 401 vs 403:** 401 Unauthorized denotes missing or invalid authentication credentials. 403 Forbidden denotes authenticated identity recognized, but lacking necessary rights to execute the action.
+
+
+---
+# 31. File Upload Handling & Storage Security
+
+## Implementation & Relevant Files
+*   **Files:** `server/src/middleware/upload.ts`, `server/src/controllers/taskController.ts`, `server/src/models/Task.ts`.
+*   **Endpoints:**
+    *   `POST /api/tasks/:taskId/attachments`
+    *   `GET /api/tasks/:taskId/attachments`
+    *   `GET /api/tasks/:taskId/attachments/:attachmentId`
+    *   `DELETE /api/tasks/:taskId/attachments/:attachmentId`
+
+## Key Code Architecture
+```typescript
+// Enforce random UUID storage naming to block overwrite & execution attacks
+const storage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadDirectory),
+    filename: (_req, file, cb) => {
+        const ext = path.extname(file.originalname).toLowerCase();
+        cb(null, `${crypto.randomUUID()}${ext}`);
+    }
+});
+
+// Enforce path traversal prevention
+export function isSafeFilePath(baseDirectory: string, requestedPath: string): boolean {
+    const resolvedBase = path.resolve(baseDirectory);
+    const resolvedTarget = path.resolve(requestedPath);
+    return resolvedTarget.startsWith(resolvedBase + path.sep);
+}
+```
+
+## Viva Explanation: Upload Vulnerabilities & Defense
+*   **Unrestricted File Upload:** Storing user files with original filenames can overwrite system binaries or allow execution of PHP/Node scripts. Solved by replacing names with `crypto.randomUUID()`, stripping paths, and whitelisting safe extensions (`.pdf`, `.png`, `.jpg`, `.txt`, `.md`).
+*   **Path Traversal (Zip Slip / Directory Traversal):** Attackers supply `../../etc/passwd`. Solved by validating `resolvedTarget.startsWith(resolvedBase + path.sep)` before executing any filesystem operation.
+
+
+---
+# 32. Production Frontend Deployment & Containerization
+
+## Implementation & Relevant Files
+*   **Files:** `client/Dockerfile`, `client/nginx.conf`, `client/src/config/api.ts`, `client/.env.example`.
+*   **Build Pipeline:** Multi-stage Dockerfile (`node:22-alpine` build stage -> `nginx:alpine` runtime stage).
+
+## Key Code Architecture
+```nginx
+# client/nginx.conf SPA fallback routing
+server {
+    listen 80;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+}
+```
+
+## Viva Explanation: SPA Routing in Nginx
+*   In a Single-Page Application (SPA), client routes (e.g. `/tasks`, `/focus`) exist only in browser memory managed by `react-router-dom`.
+*   When a user refreshes `/tasks`, the web server looks for a physical file `/tasks/index.html` on disk. Without SPA routing, Nginx returns HTTP 404.
+*   The `try_files $uri $uri/ /index.html;` directive instructs Nginx: if the requested file doesn't exist on disk, serve `index.html` with HTTP 200, allowing React Router to mount and render the correct route.
+
+
+---
+# 33. Object-Relational Mapping (Prisma ORM)
+
+## Implementation & Relevant Files
+*   **Files:** `server/prisma/schema.prisma`, `server/src/db/prisma.ts`, `server/src/db/queries/analyticsQueries.ts`.
+*   **Models:** `User`, `Task`, `AnalyticsSession`.
+
+## Key Code Architecture
+```prisma
+model AnalyticsSession {
+  id        Int      @id @default(autoincrement())
+  taskId    String   @map("task_id")
+  userId    String   @map("user_id")
+  duration  Int
+  startedAt DateTime @map("started_at")
+  endedAt   DateTime @map("ended_at")
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_analytics_sessions_user_id")
+  @@index([taskId], map: "idx_analytics_sessions_task_id")
+  @@map("analytics_sessions")
+}
+```
+
+## Viva Explanation: Raw SQL vs ORM Trade-offs
+*   **Prisma ORM:** Provides end-to-end type safety (TypeScript types generated from schema), auto-completion, declarative schema migrations, and parameterized query construction that prevents SQL injection.
+*   **Raw SQL (`node-postgres`):** Provides maximal control over execution plans, custom CTEs, and minimal memory overhead.
+*   **TaskFlow Architecture:** Both are maintained side-by-side to demonstrate practical trade-offs. The analytics reporting layer uses Prisma ORM as primary with fallback to raw SQL.
+
+
+---
+# 34. Database Transactions & ACID Semantics
+
+## Implementation & Relevant Files
+*   **Files:** `server/src/controllers/sessionController.ts` (`persistAnalyticsSessionTx`).
+*   **Verification:** `server/src/tests/integration/transaction.test.ts`.
+
+## Key Code Architecture
+```typescript
+export async function persistAnalyticsSessionTx(params: AnalyticsTransactionParams) {
+    return await prisma.$transaction(async (tx) => {
+        // Step 1: Upsert User record
+        await tx.user.upsert({
+            where: { id: params.userId },
+            update: { name: params.userName },
+            create: { id: params.userId, name: params.userName },
+        });
+
+        // Step 2: Upsert Task record
+        await tx.task.upsert({
+            where: { id: params.taskId },
+            update: { title: params.taskTitle },
+            create: { id: params.taskId, title: params.taskTitle, userId: params.userId },
+        });
+
+        // Step 3: Insert Analytics Session record
+        return await tx.analyticsSession.create({
+            data: {
+                taskId: params.taskId,
+                userId: params.userId,
+                duration: params.duration,
+                startedAt: new Date(params.startedAt),
+                endedAt: new Date(params.endedAt),
+            },
+        });
+    });
+}
+```
+
+## Viva Explanation: ACID Semantics & Heterogeneous Transaction Boundaries
+*   **ACID Guarantees:**
+    *   **Atomicity:** If inserting the analytics session fails, the user and task upserts are rolled back completely.
+    *   **Consistency:** Foreign key constraints are validated before committing.
+    *   **Isolation:** Uncommitted writes are invisible to concurrent queries.
+    *   **Durability:** Once committed, writes survive process crashes.
+*   **Architectural Boundary:** A single local database transaction cannot atomically span across both MongoDB and PostgreSQL without distributed two-phase commit (2PC) or Saga orchestrators. TaskFlow encapsulates operational state in MongoDB and isolates the ACID transaction boundary within PostgreSQL.
+
+
+---
+# 35. Redis In-Memory Caching (Cache-Aside Pattern)
+
+## Implementation & Relevant Files
+*   **Files:** `server/src/utils/redis.ts`, `server/src/controllers/analyticsController.ts`, `server/src/controllers/sessionController.ts`.
+*   **Verification:** `server/src/tests/integration/redisCache.test.ts`.
+
+## Key Code Architecture
+```typescript
+// Cache-Aside Pattern in analyticsController.ts
+export const getAnalytics = async (req: AuthRequest, res: Response) => {
+    const userId = req.user?.userId || '';
+    const cacheKey = `analytics:user:${userId}:time-by-task`;
+
+    // 1. Check in-memory Redis cache
+    const cached = await getCachedJson(cacheKey);
+    if (cached !== null) {
+        res.setHeader('X-Cache', 'HIT');
+        return res.json(cached);
+    }
+
+    // 2. Cache miss: Query relational store
+    const data = await getTimeSpentPerUserPerTaskPrisma(userId);
+
+    // 3. Write back to Redis with TTL
+    await setCachedJson(cacheKey, data, config.REDIS_CACHE_TTL);
+
+    res.setHeader('X-Cache', 'MISS');
+    res.json(data);
+};
+```
+
+## Viva Explanation: Cache Patterns & Invalidation
+*   **Cache-Aside (Lazy Loading):** The application reads from the cache; on miss, it reads from the database and writes back to cache. Data is only cached when requested, preventing memory waste on unread data.
+*   **Cache Invalidation:** When a new focus session is saved, `invalidateCachePattern('analytics:user:${userId}:*')` purges the stale cache entry immediately, guaranteeing consistency for the next read.
+*   **Offline Fallback:** If Redis is offline, calls gracefully return `null` and fall back to PostgreSQL without crashing the API.
+
+
+---
+# 36. Scheduled Background Jobs (Cron Maintenance)
+
+## Implementation & Relevant Files
+*   **Files:** `server/src/jobs/cleanupJob.ts`, `server/src/jobs/scheduler.ts`, `server/src/index.ts`.
+*   **Verification:** `server/src/tests/unit/cleanupJob.test.ts`.
+
+## Key Code Architecture
+```typescript
+// Background cleanup job with grace period protection
+export async function runMaintenanceJob(options = {}): Promise<CleanupJobResult> {
+    const files = await fs.promises.readdir(uploadDir);
+    const tasks = await Task.find({ 'attachments.0': { $exists: true } }, { 'attachments.filename': 1 }).lean();
+    const referenced = new Set(tasks.flatMap(t => t.attachments.map(a => a.filename)));
+
+    for (const file of files) {
+        const filePath = path.join(uploadDir, file);
+        const stat = await fs.promises.stat(filePath);
+        if (referenced.has(file)) continue;
+
+        // Unreferenced file: check 24h grace period
+        if (Date.now() - stat.mtimeMs >= maxAgeMs) {
+            await fs.promises.unlink(filePath);
+            result.deleted++;
+        }
+    }
+    return result;
+}
+```
+
+## Viva Explanation: Background Maintenance & Grace Periods
+*   **Why a Grace Period?** Deleting unreferenced files immediately could destroy concurrent uploads where Multer has saved the file to disk but the MongoDB `Task.save()` request is still in flight. A 24-hour grace period guarantees safety.
+*   **Fail-Safe Design:** If MongoDB lookup fails, deletion is aborted immediately, preventing catastrophic data loss during database partitions.
+
+
+---
+# 37. Real-Time WebSocket Communication (Socket.IO)
+
+## Implementation & Relevant Files
+*   **Files:** `server/src/socket.ts`, `server/src/controllers/taskController.ts`, `client/src/context/SocketContext.tsx`, `client/src/pages/Tasks.tsx`.
+*   **Verification:** `server/src/tests/integration/socket.test.ts`.
+
+## Key Code Architecture
+```typescript
+// Handshake Authentication & User Room Routing
+export function authenticateSocketHandshake(socket: Socket, next: (err?: any) => void) {
+    const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.replace(/^Bearer\s+/i, '');
+    if (!token) return next(new Error('Authentication error: missing token'));
+    try {
+        const decoded = jwt.verify(token, config.JWT_SECRET as string) as any;
+        (socket as AuthenticatedSocket).data.user = decoded;
+        next();
+    } catch {
+        return next(new Error('Authentication error: invalid or expired token'));
+    }
+}
+
+// User-scoped Room Broadcast
+export function emitTaskCreated(userId: string, task: any) {
+    if (!ioInstance) return;
+    ioInstance.to(`user:${userId}`).emit('task:created', task);
+}
+```
+
+## Viva Explanation: WebSocket vs HTTP Polling
+*   **HTTP Polling:** The client repeatedly makes HTTP requests (e.g. every 3 seconds). Generates massive header overhead (HTTP headers on every poll), consumes battery, and introduces an average latency of half the polling interval.
+*   **WebSocket:** Establishes a persistent, bi-directional TCP connection after a single HTTP upgrade handshake. Server pushes events immediately (`task:created`) with minimal frame overhead (< 6 bytes), providing sub-millisecond real-time synchronization.
+*   **Tenant Isolation:** Using Socket.IO rooms (`user:${userId}`) ensures broadcasts are strictly isolated to the authenticated user's active devices and tabs.
+
