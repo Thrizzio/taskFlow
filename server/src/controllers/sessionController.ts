@@ -5,6 +5,7 @@ import { Task } from '../models/Task';
 import { User } from '../models/User';
 import { prisma } from '../db/prisma';
 import { invalidateCachePattern } from '../utils/redis';
+import { emitFocusSessionCompleted } from '../socket';
 
 export interface AnalyticsTransactionParams {
     userId: string;
@@ -117,6 +118,7 @@ export const createFocusSession = async (req: AuthRequest, res: Response): Promi
         // Invalidate Redis analytics cache for this user
         if (userId) {
             await invalidateCachePattern(`analytics:user:${userId}:*`);
+            emitFocusSessionCompleted(userId, session);
         }
 
         res.status(201).json(session);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import { API_BASE_URL } from '../config/api';
 
 export interface Task {
@@ -42,6 +43,7 @@ export const Tasks = () => {
     const [statusFilter, setStatusFilter] = useState('all');
     const [title, setTitle] = useState('');
     const { token } = useAuth();
+    const { socket, isConnected } = useSocket();
     const [isLoading, setIsLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
 
@@ -70,6 +72,36 @@ export const Tasks = () => {
     useEffect(() => {
         fetchTasks();
     }, [token]);
+
+    // Listen for real-time WebSocket updates to avoid polling
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleTaskCreated = (newTask: Task) => {
+            setTasks((prev) => {
+                if (prev.some((t) => t._id === newTask._id)) return prev;
+                return [newTask, ...prev];
+            });
+        };
+
+        const handleTaskUpdated = (updatedTask: Task) => {
+            setTasks((prev) => prev.map((t) => (t._id === updatedTask._id ? updatedTask : t)));
+        };
+
+        const handleTaskDeleted = ({ taskId }: { taskId: string }) => {
+            setTasks((prev) => prev.filter((t) => t._id !== taskId));
+        };
+
+        socket.on('task:created', handleTaskCreated);
+        socket.on('task:updated', handleTaskUpdated);
+        socket.on('task:deleted', handleTaskDeleted);
+
+        return () => {
+            socket.off('task:created', handleTaskCreated);
+            socket.off('task:updated', handleTaskUpdated);
+            socket.off('task:deleted', handleTaskDeleted);
+        };
+    }, [socket]);
 
     useEffect(() => {
         const filter = createTaskFilter(statusFilter);
@@ -125,8 +157,28 @@ export const Tasks = () => {
                 }
                 `}
             </style>
-            <header className="header-container" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
-                <h2>Task Management</h2>
+            <header className="header-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <h2>Task Management</h2>
+                    <span style={{
+                        fontSize: '0.75rem',
+                        padding: '3px 8px',
+                        borderRadius: '12px',
+                        backgroundColor: isConnected ? '#e6f4ea' : '#f1f3f4',
+                        color: isConnected ? '#137333' : '#5f6368',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                    }}>
+                        <span style={{
+                            width: '7px',
+                            height: '7px',
+                            borderRadius: '50%',
+                            backgroundColor: isConnected ? '#34a853' : '#9aa0a6'
+                        }} />
+                        {isConnected ? 'Real-time Live' : 'Connecting...'}
+                    </span>
+                </div>
                 <Link to="/dashboard">Back to Dashboard</Link>
             </header>
 

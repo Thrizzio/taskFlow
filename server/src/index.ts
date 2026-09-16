@@ -1,7 +1,9 @@
 import express from 'express';
+import http from 'http';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import config, { validateEnv } from './utils/config';
+import { initSocketServer } from './socket';
 import authRoutes from './routes/authRoutes';
 import taskRoutes from './routes/taskRoutes';
 import sessionRoutes from './routes/sessionRoutes';
@@ -40,7 +42,10 @@ const startServer = async () => {
         // Initialize PG for analytics schema support
         await initPgDB();
 
-        app.listen(config.PORT, () => {
+        const httpServer = http.createServer(app);
+        initSocketServer(httpServer);
+
+        httpServer.listen(config.PORT, () => {
             console.log(`Server running on port ${config.PORT}`);
             startScheduler();
         });

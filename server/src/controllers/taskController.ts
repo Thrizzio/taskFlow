@@ -7,6 +7,7 @@ import { Task } from '../models/Task';
 import { sanitizeString } from '../utils/sanitize';
 import { isSafeFilePath } from '../middleware/upload';
 import config from '../utils/config';
+import { emitTaskCreated, emitTaskUpdated, emitTaskDeleted } from '../socket';
 
 export const getTasks = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -49,6 +50,9 @@ export const createTask = async (req: AuthRequest, res: Response): Promise<void>
         });
 
         const savedTask = await task.save();
+        if (req.user?.userId) {
+            emitTaskCreated(req.user.userId, savedTask);
+        }
         res.status(201).json(savedTask);
     } catch (error) {
         console.error('createTask error:', error);
@@ -78,6 +82,9 @@ export const updateTask = async (req: AuthRequest, res: Response): Promise<void>
             res.status(404).json({ error: 'Task not found' });
             return;
         }
+        if (req.user?.userId) {
+            emitTaskUpdated(req.user.userId, task);
+        }
         res.json(task);
     } catch (error) {
         console.error('updateTask error:', error);
@@ -91,6 +98,9 @@ export const deleteTask = async (req: AuthRequest, res: Response): Promise<void>
         if (!deleted) {
             res.status(404).json({ error: 'Task not found' });
             return;
+        }
+        if (req.user?.userId) {
+            emitTaskDeleted(req.user.userId, String(req.params.taskId));
         }
         res.status(204).send();
     } catch (error) {
@@ -124,6 +134,10 @@ export const uploadTaskAttachment = async (req: AuthRequest, res: Response): Pro
         (task as any).attachments = (task as any).attachments || [];
         (task as any).attachments.push(attachment);
         await task.save();
+
+        if (req.user?.userId) {
+            emitTaskUpdated(req.user.userId, task);
+        }
 
         res.status(201).json(attachment);
     } catch (error) {
@@ -203,6 +217,9 @@ export const deleteTaskAttachment = async (req: AuthRequest, res: Response): Pro
         }
 
         await task.save();
+        if (req.user?.userId) {
+            emitTaskUpdated(req.user.userId, task);
+        }
         res.status(200).json({ message: 'Attachment deleted successfully' });
     } catch (error) {
         console.error('deleteTaskAttachment error:', error);
