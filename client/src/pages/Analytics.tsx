@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/api';
 
 interface AnalyticsRow {
     userName: string;
@@ -16,7 +17,7 @@ export const Analytics = () => {
     useEffect(() => {
         const fetchAnalytics = async () => {
             try {
-                const res = await fetch('http://localhost:4000/api/analytics/time-by-task', {
+                const res = await fetch(`${API_BASE_URL}/api/analytics/time-by-task`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 if (res.ok) {

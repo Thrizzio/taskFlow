@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/api';
 
 export const TaskDetail = () => {
     const { taskId } = useParams<{ taskId: string }>();
@@ -11,7 +12,7 @@ export const TaskDetail = () => {
     useEffect(() => {
         const fetchTask = async () => {
             try {
-                const res = await fetch(`http://localhost:4000/api/tasks/${taskId}`, {
+                const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (res.ok) {
@@ -31,7 +32,7 @@ export const TaskDetail = () => {
     const toggleStatus = async () => {
         try {
             const newStatus = task.status === 'pending' ? 'completed' : 'pending';
-            const res = await fetch(`http://localhost:4000/api/tasks/${taskId}`, {
+            const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ status: newStatus })
@@ -47,7 +48,7 @@ export const TaskDetail = () => {
 
     const handleDelete = async () => {
         try {
-            await fetch(`http://localhost:4000/api/tasks/${taskId}`, {
+            await fetch(`${API_BASE_URL}/api/tasks/${taskId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -95,7 +96,7 @@ export const TaskDetail = () => {
                         formData.append('file', fileInput.files[0]);
 
                         try {
-                            const res = await fetch(`http://localhost:4000/api/tasks/${taskId}/attachments`, {
+                            const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/attachments`, {
                                 method: 'POST',
                                 headers: { 'Authorization': `Bearer ${token}` },
                                 body: formData,
@@ -128,7 +129,7 @@ export const TaskDetail = () => {
                             <li key={att.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#f9f9f9', marginBottom: '4px', border: '1px solid #eee' }}>
                                 <span>{att.originalName} ({(att.size / 1024).toFixed(1)} KB)</span>
                                 <a
-                                    href={`http://localhost:4000/api/tasks/${taskId}/attachments/${att.id}/download`}
+                                    href={`${API_BASE_URL}/api/tasks/${taskId}/attachments/${att.id}/download`}
                                     target="_blank"
                                     rel="noreferrer"
                                     style={{ color: '#0070f3', textDecoration: 'none', fontWeight: 500 }}

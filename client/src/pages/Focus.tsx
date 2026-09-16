@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/api';
 
 export const Focus = () => {
     const [time, setTime] = useState(0);
@@ -17,7 +18,7 @@ export const Focus = () => {
     useEffect(() => {
         if (!taskId) return;
         const fetchTask = async () => {
-            const res = await fetch(`http://localhost:4000/api/tasks/${taskId}`, {
+            const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -46,7 +47,7 @@ export const Focus = () => {
         if (timerRef.current) clearInterval(timerRef.current);
 
         try {
-            await fetch('http://localhost:4000/api/focus-sessions', {
+            await fetch(`${API_BASE_URL}/api/focus-sessions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({
