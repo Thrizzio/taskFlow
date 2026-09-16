@@ -10,6 +10,7 @@ import agentRoutes from './routes/agentRoutes';
 import adminRoutes from './routes/adminRoutes';
 import { initPgDB } from './db/pg';
 import { sanitizeRequest } from './middleware/sanitize';
+import { startScheduler } from './jobs/scheduler';
 validateEnv();
 
 const app = express();
@@ -41,6 +42,7 @@ const startServer = async () => {
 
         app.listen(config.PORT, () => {
             console.log(`Server running on port ${config.PORT}`);
+            startScheduler();
         });
     } catch (error) {
         console.error('Failed to start server:', error);

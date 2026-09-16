@@ -23,6 +23,10 @@ const config = {
   REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
   REDIS_CACHE_TTL: parseInt(process.env.REDIS_CACHE_TTL || '300', 10),
 
+  // Scheduled Cron Jobs
+  CLEANUP_CRON_SCHEDULE: process.env.CLEANUP_CRON_SCHEDULE || '0 * * * *',
+  ORPHANED_FILE_MAX_AGE_HOURS: parseInt(process.env.ORPHANED_FILE_MAX_AGE_HOURS || '24', 10),
+
   // ── Gemini pricing assumptions ────────────────────────────────────────────
   // Source: Google AI pricing for gemini-2.0-flash-lite (per 1,000 tokens).
   // Update these values here if pricing changes; no other file should define
