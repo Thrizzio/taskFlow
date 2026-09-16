@@ -24,7 +24,7 @@ export const ALLOWED_EXTENSIONS = new Set([
 ]);
 
 // Ensure upload directory exists
-const uploadDirectory = path.resolve(config.UPLOAD_DIR);
+const uploadDirectory = path.resolve(config?.UPLOAD_DIR || path.resolve(__dirname, '../../uploads'));
 if (!fs.existsSync(uploadDirectory)) {
     fs.mkdirSync(uploadDirectory, { recursive: true });
 }
@@ -96,3 +96,4 @@ export function handleUpload(fieldName: string) {
         });
     };
 }
+

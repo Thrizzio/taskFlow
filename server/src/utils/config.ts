@@ -1,3 +1,4 @@
+import dotenv from 'dotenv';
 import path from 'path';
 dotenv.config();
 
@@ -17,6 +18,10 @@ const config = {
 
   // File Upload storage directory
   UPLOAD_DIR: process.env.UPLOAD_DIR || path.resolve(__dirname, '../../uploads'),
+
+  // Redis Cache configuration
+  REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
+  REDIS_CACHE_TTL: parseInt(process.env.REDIS_CACHE_TTL || '300', 10),
 
   // ── Gemini pricing assumptions ────────────────────────────────────────────
   // Source: Google AI pricing for gemini-2.0-flash-lite (per 1,000 tokens).

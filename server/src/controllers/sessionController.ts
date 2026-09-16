@@ -4,6 +4,7 @@ import { FocusSession } from '../models/FocusSession';
 import { Task } from '../models/Task';
 import { User } from '../models/User';
 import { prisma } from '../db/prisma';
+import { invalidateCachePattern } from '../utils/redis';
 
 export interface AnalyticsTransactionParams {
     userId: string;
@@ -111,6 +112,11 @@ export const createFocusSession = async (req: AuthRequest, res: Response): Promi
                 console.error('PostgreSQL analytics transaction rolled back:', txErr);
                 // Operational session in Mongo succeeded; report analytics sync warning
             }
+        }
+
+        // Invalidate Redis analytics cache for this user
+        if (userId) {
+            await invalidateCachePattern(`analytics:user:${userId}:*`);
         }
 
         res.status(201).json(session);

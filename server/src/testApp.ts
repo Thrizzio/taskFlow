@@ -17,6 +17,8 @@ import authRoutes from './routes/authRoutes';
 import taskRoutes from './routes/taskRoutes';
 import agentRoutes from './routes/agentRoutes';
 import adminRoutes from './routes/adminRoutes';
+import sessionRoutes from './routes/sessionRoutes';
+import analyticsRoutes from './routes/analyticsRoutes';
 import { sanitizeRequest } from './middleware/sanitize';
 
 export function createApp() {
@@ -27,6 +29,8 @@ export function createApp() {
 
     app.use('/api/auth', authRoutes);
     app.use('/api/tasks', taskRoutes);
+    app.use('/api/focus-sessions', sessionRoutes);
+    app.use('/api/analytics', analyticsRoutes);
     app.use('/api/agent', agentRoutes);
     app.use('/api/admin', adminRoutes);
 
