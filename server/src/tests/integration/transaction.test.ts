@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // In-memory mock database state for testing transaction rollback
 let mockUsersTable: Record<string, { id: string; name: string }> = {};
 let mockTasksTable: Record<string, { id: string; title: string; userId: string }> = {};
-let mockSessionsTable: Array<{ id: number; taskId: string; userId: string; duration: number }> = {};
+let mockSessionsTable: Array<{ id: number; taskId: string; userId: string; duration: number }> = [];
 
 // Mock Prisma client with real transaction simulation
 vi.mock('../../db/prisma', () => ({

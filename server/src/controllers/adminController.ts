@@ -42,3 +42,4 @@ export const getAllUsers = async (_req: AuthRequest, res: Response): Promise<voi
         res.status(500).json({ error: 'Failed to fetch users list' });
     }
 };
+

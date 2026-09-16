@@ -58,14 +58,14 @@ export async function runMaintenanceJob(options: CleanupJobOptions = {}): Promis
         try {
             const tasksWithAttachments = await Task.find(
                 { 'attachments.0': { $exists: true } },
-                { 'attachments.storedName': 1 }
+                { 'attachments.filename': 1 }
             ).lean();
 
             for (const task of tasksWithAttachments) {
                 if (Array.isArray(task.attachments)) {
                     for (const att of task.attachments) {
-                        if (att.storedName) {
-                            referencedFilenames.add(att.storedName);
+                        if (att.filename) {
+                            referencedFilenames.add(att.filename);
                         }
                     }
                 }

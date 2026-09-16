@@ -69,7 +69,7 @@ describe('Scheduled Maintenance Job: runMaintenanceJob', () => {
             lean: vi.fn().mockResolvedValue([
                 {
                     attachments: [
-                        { storedName: activeFile, originalName: 'report.pdf' },
+                        { filename: activeFile, originalName: 'report.pdf' },
                     ],
                 },
             ]),

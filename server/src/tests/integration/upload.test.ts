@@ -25,7 +25,7 @@ vi.mock('../../models/Task', () => ({
             if (task && task.userId === userId) {
                 return {
                     ...task,
-                    save: vi.fn().mockImplementation(async function () {
+                    save: vi.fn().mockImplementation(async function (this: any) {
                         mockTasksDatabase[_id] = this;
                         return this;
                     }),
@@ -151,3 +151,4 @@ describe('File Upload Handling (/api/tasks/:taskId/attachments)', () => {
         expect(isSafeFilePath(baseDir, safePath)).toBe(true);
     });
 });
+
