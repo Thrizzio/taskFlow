@@ -8,11 +8,13 @@ import sessionRoutes from './routes/sessionRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
 import agentRoutes from './routes/agentRoutes';
 import { initPgDB } from './db/pg';
+import { sanitizeRequest } from './middleware/sanitize';
 validateEnv();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(sanitizeRequest);
 
 // Routes
 app.use('/api/auth', authRoutes);

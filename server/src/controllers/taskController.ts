@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { Task } from '../models/Task';
+import { sanitizeString } from '../utils/sanitize';
 
 export const getTasks = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -35,10 +36,10 @@ export const createTask = async (req: AuthRequest, res: Response): Promise<void>
         }
 
         const task = new Task({
-            title,
-            description,
-            priority,
-            subject,
+            title: sanitizeString(title),
+            description: description ? sanitizeString(description) : '',
+            priority: priority || 'medium',
+            subject: subject ? sanitizeString(subject) : 'general',
             userId: req.user?.userId
         });
 
@@ -52,10 +53,19 @@ export const createTask = async (req: AuthRequest, res: Response): Promise<void>
 
 export const updateTask = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const updates = req.body;
+        // Whitelist allowed fields to prevent MongoDB operator injection
+        const allowedUpdates: Record<string, any> = {};
+        const { title, description, status, priority, subject } = req.body;
+
+        if (typeof title === 'string') allowedUpdates.title = sanitizeString(title);
+        if (typeof description === 'string') allowedUpdates.description = sanitizeString(description);
+        if (typeof status === 'string' && ['pending', 'completed'].includes(status)) allowedUpdates.status = status;
+        if (typeof priority === 'string' && ['low', 'medium', 'high'].includes(priority)) allowedUpdates.priority = priority;
+        if (typeof subject === 'string') allowedUpdates.subject = sanitizeString(subject);
+
         const task = await Task.findOneAndUpdate(
             { _id: req.params.taskId, userId: req.user?.userId },
-            { $set: updates },
+            { $set: allowedUpdates },
             { new: true }
         );
 

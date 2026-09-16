@@ -16,11 +16,13 @@ import cors from 'cors';
 import authRoutes from './routes/authRoutes';
 import taskRoutes from './routes/taskRoutes';
 import agentRoutes from './routes/agentRoutes';
+import { sanitizeRequest } from './middleware/sanitize';
 
 export function createApp() {
     const app = express();
     app.use(cors());
     app.use(express.json());
+    app.use(sanitizeRequest);
 
     app.use('/api/auth', authRoutes);
     app.use('/api/tasks', taskRoutes);
