@@ -10,6 +10,11 @@ const config = {
   // If absent, the agent returns a deterministic fallback insight instead.
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
 
+  // Google OAuth configuration
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+  GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback',
+
   // ── Gemini pricing assumptions ────────────────────────────────────────────
   // Source: Google AI pricing for gemini-2.0-flash-lite (per 1,000 tokens).
   // Update these values here if pricing changes; no other file should define

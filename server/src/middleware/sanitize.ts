@@ -10,7 +10,13 @@ export function sanitizeRequest(req: Request, _res: Response, next: NextFunction
         req.body = sanitizeMongoInput(req.body);
     }
     if (req.query && typeof req.query === 'object') {
-        req.query = sanitizeMongoInput(req.query);
+        for (const key of Object.keys(req.query)) {
+            if (key.startsWith('$') || key.includes('.')) {
+                delete (req.query as any)[key];
+            } else if (typeof req.query[key] === 'string') {
+                (req.query as any)[key] = sanitizeString(req.query[key] as string);
+            }
+        }
     }
     if (req.params && typeof req.params === 'object') {
         for (const [key, val] of Object.entries(req.params)) {
