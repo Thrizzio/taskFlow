@@ -11,6 +11,7 @@ import analyticsRoutes from './routes/analyticsRoutes';
 import agentRoutes from './routes/agentRoutes';
 import adminRoutes from './routes/adminRoutes';
 import paymentRoutes from './routes/paymentRoutes';
+import ssrRoutes from './routes/ssrRoutes';
 import { initPgDB } from './db/pg';
 import { sanitizeRequest } from './middleware/sanitize';
 import { startScheduler } from './jobs/scheduler';
@@ -22,6 +23,7 @@ app.use(express.json());
 app.use(sanitizeRequest);
 
 // Routes
+app.use('/', ssrRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/focus-sessions', sessionRoutes);

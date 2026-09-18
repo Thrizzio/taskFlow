@@ -20,6 +20,7 @@ import adminRoutes from './routes/adminRoutes';
 import sessionRoutes from './routes/sessionRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
 import paymentRoutes from './routes/paymentRoutes';
+import ssrRoutes from './routes/ssrRoutes';
 import { sanitizeRequest } from './middleware/sanitize';
 
 export function createApp() {
@@ -28,6 +29,7 @@ export function createApp() {
     app.use(express.json());
     app.use(sanitizeRequest);
 
+    app.use('/', ssrRoutes);
     app.use('/api/auth', authRoutes);
     app.use('/api/tasks', taskRoutes);
     app.use('/api/focus-sessions', sessionRoutes);
