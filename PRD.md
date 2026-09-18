@@ -20,10 +20,10 @@ Students and developers who want a straightforward productivity tracker to build
 
 FocusFlow does not aim to provide:
 
-* Social features
-* Payments
+* Social networking features (feeds, follows, public comments)
+* Live production payment processing with real monetary charges (a sandbox/test-mode payment gateway with cryptographic verification is provided for the engineering rubric)
 * Multi-user concurrent document co-editing (single-user real-time device sync is supported)
-* Push notifications
+* Native mobile push notifications
 * Fully autonomous AI agents with dynamic tool selection
 
 ---
@@ -473,4 +473,93 @@ Provide instant, low-latency UI synchronization across browser tabs and devices 
 *   Enforce user room isolation: Automatically route connected sockets into private user rooms (`user:${userId}`); prevent cross-user message leakage.
 *   Emit real-time events on task lifecycle changes (`task:created`, `task:updated`, `task:deleted`) and session completion (`focus:completed`).
 *   Client integration: Connect via `SocketContext`, update React state optimistically on incoming events, and display real-time connection status indicators.
+
+
+---
+# 35. Responsive Layout & Styling Competence
+
+## Purpose
+Ensure all core application interfaces render seamlessly across device form factors from mobile viewports (320px) to wide desktop displays (1440px+) without horizontal clipping, overlapping controls, or broken text.
+
+## Requirements
+*   **Mobile Viewport Adaptation (< 600px)**:
+    *   Task cards stack vertically (`flex-direction: column !important; align-items: flex-start !important`).
+    *   Task creation forms convert to full-width vertical inputs.
+    *   Action buttons across Task Detail and Focus screens wrap gracefully (`flexWrap: 'wrap'`).
+*   **Table Overflow Protection**:
+    *   Wrap data tables (e.g. Analytics PostgreSQL time report) inside dedicated scroll containers (`overflowX: 'auto'`, `-webkit-overflow-scrolling: touch`) preventing page-level horizontal overflow.
+*   **Fluid Typography & Controls**:
+    *   Use CSS `clamp()` for timer displays (`clamp(2.8rem, 12vw, 4.5rem)`) and container padding (`clamp(1rem, 4vw, 2rem)`) to prevent layout clipping on small screens while remaining proportional on desktop.
+
+
+---
+# 36. MongoDB Aggregation Pipelines
+
+## Purpose
+Execute multi-stage analytical queries within the database engine using MongoDB's aggregation framework, computing grouped statistics, attachment summaries, and completion metrics without pulling unaggregated raw datasets into application memory.
+
+## Requirements
+*   Expose `GET /api/tasks/stats` protected by JWT authentication.
+*   Enforce strict tenant isolation as the initial pipeline stage (`$match: { userId: ObjectId(req.user.userId) }`).
+*   Execute parallel multi-dimensional analytics using `$facet`:
+    *   `byStatus`: `$group` counts by status (`completed`, `pending`), sorted descending.
+    *   `byPriority`: `$group` counts by priority (`high`, `medium`, `low`), sorted by priority name.
+    *   `overview`: Multi-stage pipeline computing:
+        *   `$project`: extract attachment count via `$size` and byte sum.
+        *   `$group`: aggregate `totalTasks`, `completedTasks`, `pendingTasks`, `totalAttachments`, and `totalAttachmentBytes` using `$cond` and `$sum`.
+        *   `$project`: calculate `completionRate` using arithmetic operators (`$multiply`, `$divide`, `$round`).
+*   Return predictable fallback zeros for users with zero tasks.
+
+
+---
+# 37. MongoDB Embedding vs Referencing Relationships
+
+## Purpose
+Apply deliberate NoSQL data modeling patterns, choosing between embedded subdocuments and referenced normalized entities based on cardinality, lifecycle dependencies, and MongoDB's 16MB BSON document boundary.
+
+## Requirements
+*   **Embedded Subdocuments (`Task.attachments`)**:
+    *   *Cardinality*: 1-to-few bounded (0 to ~10 attachments per task).
+    *   *Lifecycle*: Attachments belong strictly to a single task; deleted automatically when the parent task is removed.
+    *   *Performance*: Embedded inline, allowing single-query document retrieval without expensive multi-collection `$lookup` joins.
+*   **Referenced Entities (`Task.userId` -> `User`, `FocusSession.taskId` -> `Task`)**:
+    *   *Cardinality*: 1-to-unbounded (a user can create thousands of tasks and sessions).
+    *   *Lifecycle*: Independent entity lifecycles. Storing tasks inside `User` documents would violate the 16MB document limit and introduce severe write contention.
+    *   *On-Demand Population*: Provide `GET /api/tasks/:taskId?populate=user` to dynamically resolve foreign keys using Mongoose `.populate('userId', 'name email role')`.
+
+
+---
+# 38. Payment Gateway Integration (Sandbox / Test Mode)
+
+## Purpose
+Provide a secure, cryptographically verified checkout and subscription upgrade flow for the Pro tier using a test-mode payment gateway (Razorpay sandbox protocol) without accepting unverified client-side claims.
+
+## Requirements
+*   **Order Creation (`POST /api/payment/create-order`)**:
+    *   Generate a unique server-side sandbox order identifier (`order_sbx_${timestamp}_${randomId}`).
+    *   Store an unverified `Payment` record with status `'created'`, associated plan, amount in smallest currency unit (e.g. 49900 paise = ₹499.00), and currency `'INR'`.
+*   **Cryptographic Signature Verification (`POST /api/payment/verify`)**:
+    *   Require `{ razorpay_order_id, razorpay_payment_id, razorpay_signature }`.
+    *   Compute server-side HMAC-SHA256 of `order_id + "|" + payment_id` using `RAZORPAY_KEY_SECRET`.
+    *   Validate signature using timing-safe buffer comparison (`crypto.timingSafeEqual`) to prevent timing side-channel attacks.
+    *   **NEVER** trust client-supplied status flags like `paymentSuccessful: true`.
+    *   On valid signature: update payment to `'paid'` and upgrade user account (`User.isPro = true`).
+    *   On tampered or invalid signature: update payment to `'failed'` and respond with HTTP 400 Bad Request.
+*   **Offline Testability**:
+    *   Support deterministic offline mock keys and automated testing without live network calls to third-party payment servers.
+
+
+---
+# 39. Server-Side Rendering (ReactDOMServer)
+
+## Purpose
+Demonstrate server-side rendering (SSR) of React components to achieve instant First Contentful Paint (FCP) and optimal search engine crawler indexing (SEO) without requiring client JavaScript hydration.
+
+## Requirements
+*   Expose `GET /ssr-demo` serving a complete HTML5 document.
+*   Render React component markup synchronously on the Node.js backend using `ReactDOMServer.renderToString()`.
+*   Interpolate live productivity summary telemetry (total tasks, completed tasks, pending tasks) directly into the rendered markup.
+*   Embed standard SEO `<meta>` tags (title, description, robots, viewport) and scoped CSS within the delivered `<head>`.
+*   Include graceful offline fallbacks ensuring the endpoint renders valid HTML even when the operational database is temporarily unreachable.
+
 

@@ -760,3 +760,152 @@ Client A (Browser Tab 1)       Express + Socket.IO Server       Client B (Browse
 *   **Authentication Handshake:** Sockets authenticate during connection establishment via `socket.handshake.auth.token` or `headers.authorization`. Sockets without valid JWTs are rejected immediately.
 *   **Room Isolation:** Every authenticated socket joins a dedicated private room `user:${userId}`. Event emissions target the user's room specifically, preventing data leakage across tenants.
 
+
+---
+# 33. Responsive UI Breakpoints & Mobile Viewport Adaptation
+
+TaskFlow uses a mobile-first responsive architecture ensuring layout stability across viewports:
+
+```text id="responsivebreakpoints"
+Screen Width:
+  0px ────────────── 600px ────────────────────── 1024px ────────────── 1440px+
+ [Mobile Layout]          [Tablet / Narrow Laptop]       [Desktop View]
+  • Cards stack vertically  • Auto-fit 2-column grid     • Multi-column grid
+  • Full-width forms        • Wrap-enabled action bars   • Max-width 1000px container
+  • Horizontal table scroll • Fluid typography (clamp)   • Fixed padding
+```
+
+*   **Table Horizontal Containment:** Broad tabular outputs (e.g. PostgreSQL time tracking) are encapsulated in `.table-responsive` wrappers with `overflowX: 'auto'` and `-webkit-overflow-scrolling: touch`, keeping table rows scrollable without bursting mobile document viewports.
+*   **Fluid Typography & Spacing:** Key focal points (such as the focus timer) use CSS math functions (`fontSize: clamp(2.8rem, 12vw, 4.5rem)`) to dynamically adapt between small handhelds and large widescreen monitors.
+
+
+---
+# 34. MongoDB Multi-Stage Aggregation Pipeline Architecture
+
+TaskFlow computes multi-dimensional analytics inside the database engine via `GET /api/tasks/stats`:
+
+```text id="aggregationpipeline"
+Raw Tasks Collection (MongoDB)
+        │
+   [Stage 1: $match] ──> Filter: { userId: ObjectId(req.user.userId) } (Tenant Isolation)
+        │
+   [Stage 2: $facet] ──> Executes 3 parallel sub-pipelines in a single database pass:
+        │
+        ├── byStatus:
+        │     └── $group: { _id: "$status", count: { $sum: 1 } }
+        │     └── $sort:  { count: -1 }
+        │
+        ├── byPriority:
+        │     └── $group: { _id: "$priority", count: { $sum: 1 } }
+        │     └── $sort:  { _id: 1 }
+        │
+        └── overview:
+              ├── $project: { status: 1, attachmentCount: { $size: "$attachments" }, bytes: { $sum: "$attachments.size" } }
+              ├── $group:   { totalTasks: { $sum: 1 }, completedTasks: { $cond: [...] }, attachmentBytes: { $sum: "$bytes" } }
+              └── $project: { completionRate: { $round: [{ $multiply: [{ $divide: [...] }, 100] }, 1] }, ... }
+```
+
+*   **Performance & Ergonomics:** All grouping, summation, and arithmetic calculations occur inside the MongoDB query optimizer, returning pre-calculated telemetry in a single roundtrip rather than transferring large unaggregated document arrays over the network.
+
+
+---
+# 35. MongoDB Relational Modeling: Embedding vs Referencing
+
+TaskFlow implements an explicit hybrid data modeling strategy:
+
+```text id="relationshipmodeling"
++-------------------------------------------------------------------------------+
+| Embedded Subdocuments (Bounded 1:Few)                                         |
+| Task Document                                                                 |
+|   ├── _id: ObjectId("65f1a2b3...")                                            |
+|   ├── title: "Prepare Final Demo"                                             |
+|   └── attachments: [                                                          |
+|         { id: "uuid-1", originalName: "doc.pdf", filename: "...", size: 1024 }|
+|       ]  <── Stored inline. Atomic updates with task. 0 additional queries.   |
++-------------------------------------------------------------------------------+
+        │ (Referenced Foreign Key: unbounded 1:N)
+        ▼
++-------------------------------------------------------------------------------+
+| Referenced Entities (Unbounded 1:N)                                           |
+| User Document                                                                 |
+|   ├── _id: ObjectId("65f1a2b3...")                                            |
+|   ├── name: "Alice Developer"                                                 |
+|   └── email: "alice@example.com"                                              |
+|                                                                               |
+| FocusSession Document                                                         |
+|   ├── _id: ObjectId("...")                                                    |
+|   ├── taskId: ObjectId("65f1a2b3...")  <── Foreign Key Reference             |
+|   └── userId: ObjectId("65f1a2b3...")  <── Foreign Key Reference             |
++-------------------------------------------------------------------------------+
+```
+
+*   **Embedding Rationale:** Attachments are strictly bounded (0 to ~10 items) and lifecycle-bound to their parent task. Embedding guarantees atomic persistence and single-read retrieval.
+*   **Referencing Rationale:** Users create thousands of tasks and sessions. Storing tasks inside the `User` document would violate MongoDB's 16MB document size limit and cause extreme document churn. Normalization maintains clean query boundaries and independent indexing.
+
+
+---
+# 36. Payment Gateway Sandbox & Cryptographic Verification Flow
+
+TaskFlow implements a secure sandbox payment flow verifying Razorpay-compatible HMAC-SHA256 signatures:
+
+```text id="paymentflow"
+Browser (Client)                     Express Backend                    Database
+      │                                     │                               │
+      │── 1. POST /api/payment/create-order ─>│                               │
+      │      { plan: 'pro_monthly' }        │── 2. Create Payment Record ──>│
+      │                                     │      (status: 'created')      │
+      │<─ 3. Return { orderId, amount, key }─│                               │
+      │                                     │                               │
+      ├── 4. Simulate Sandbox Checkout      │                               │
+      │                                     │                               │
+      │── 5. POST /api/payment/verify ─────>│                               │
+      │      { orderId, paymentId, sig }    │                               │
+      │                                     │── 6. Server Signature Calc:   │
+      │                                     │      HMAC-SHA256(order|pay,   │
+      │                                     │                  secret)      │
+      │                                     │                               │
+      │                                     │── 7. crypto.timingSafeEqual() │
+      │                                     │      ├── [MISMATCH] ──> 400   │
+      │                                     │      └── [MATCH]              │
+      │                                     │            ├── Update Payment │
+      │                                     │            │   (status: paid) │
+      │                                     │            └── Update User    │
+      │                                     │                (isPro: true)  │
+      │<─ 8. 200 OK { success: true } ───────│                               │
+```
+
+*   **Zero-Trust Client Boundary:** The server never trusts client status flags like `paymentSuccessful: true`. Upgrading to Pro requires valid mathematical proof matching the server secret.
+
+
+---
+# 37. Server-Side Rendering (SSR) Architecture & Component Pipeline
+
+TaskFlow provides isolated server-side rendering using `ReactDOMServer.renderToString()` at `GET /ssr-demo`:
+
+```text id="ssrflow"
+Web Crawler / Browser Request (GET /ssr-demo)
+       │
+       ▼
+Express Route Handler (ssrRoutes.ts)
+       │
+       ├── 1. Query MongoDB for task metrics (total, completed, pending)
+       │
+       ├── 2. Instantiate Pure React Component (renderTaskSummary.ts)
+       │      React.createElement(TaskSummaryComponent, { totalTasks, ... })
+       │
+       ├── 3. Execute ReactDOMServer.renderToString(element)
+       │      Synchronously emits HTML string containing rendered DOM
+       │
+       ├── 4. Embed into semantic HTML5 document template:
+       │      <!DOCTYPE html>
+       │      <html><head><title>...</title><style>...</style></head>
+       │      <body><div id="root">${renderedMarkup}</div></body></html>
+       │
+       ▼
+HTTP Response (Content-Type: text/html; charset=utf-8)
+       └── Instant First Contentful Paint (FCP) + Full SEO crawler indexing
+```
+
+*   **Progressive Enhancement:** Crawlers and low-powered devices receive fully formed, styled HTML in the initial byte stream without requiring client-side bundle hydration.
+
+

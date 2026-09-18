@@ -844,11 +844,26 @@ Environment variables are injected at container runtime and parsed in `server/sr
 
 
 ---
-# 25. Responsive Layout & Styling
+# 25. Responsive Layout & Styling Competence
 
 ## Implementation & Relevant Files
-*   **File:** `client/src/pages/Tasks.tsx`.
-*   **Methodology:** Uses inline `<style>` tags setting `flex-direction: column` for `.task-card` and `.header-container` classes below 600px width. Maintains simple structure without large framework dependencies.
+*   **Files:** `client/src/pages/Tasks.tsx`, `Analytics.tsx`, `TaskDetail.tsx`, `Focus.tsx`, `Dashboard.tsx`, `Upgrade.tsx`.
+*   **Methodology & Patterns:**
+    1.  **Mobile Breakpoint (`@media (max-width: 600px)`):**
+        *   `Tasks.tsx`: Task cards stack vertically (`.task-card { flex-direction: column !important; align-items: flex-start !important; gap: 12px; }`), headers stack vertically, and the task form inputs collapse to vertical orientation (`.task-form { flex-direction: column !important; }`).
+        *   `Analytics.tsx`: Header items stack cleanly, and the table container prevents horizontal viewport breakage.
+        *   `TaskDetail.tsx`: Action buttons (`.task-actions`) and file upload controls (`.attachment-form`) stack vertically on mobile while spanning full width.
+    2.  **Table Overflow Containment:**
+        *   `Analytics.tsx` encapsulates the PostgreSQL time report table in `<div className="table-responsive" style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #ddd', borderRadius: '4px' }}>` with `minWidth: '480px'`, guaranteeing smooth horizontal swipe without breaking mobile layout or hiding columns.
+    3.  **Fluid Typography & Adaptive Spacing:**
+        *   `Focus.tsx`: Utilizes CSS math functions `fontSize: clamp(2.8rem, 12vw, 4.5rem)` for the countdown timer and `padding: clamp(1rem, 4vw, 2rem)` for container spacing, scaling smoothly across device widths.
+        *   `Dashboard.tsx` & `Upgrade.tsx`: Responsive auto-fitting CSS grids (`gridTemplateColumns: repeat(auto-fit, minmax(280px, 1fr))`) and flex-wrapping headers (`flexWrap: wrap`).
+
+## Viva Explanation: Responsive Strategies (Flexbox vs CSS Grid vs Media Queries)
+*   **Flexbox:** Used for 1-dimensional component-level alignments (headers, filter bars, action button rows). With `flexWrap: 'wrap'`, components adapt gracefully to dynamic content widths without hardcoded breakpoints.
+*   **CSS Grid:** Used for 2-dimensional page layouts and card decks (`repeat(auto-fit, minmax(...))`), allowing cards to automatically flow into 1, 2, or 3 columns based on available container width without requiring repetitive media queries.
+*   **Media Queries:** Reserved for structural transformations (e.g. converting a horizontal row into a stacked column at `< 600px`).
+*   **Fluid Typography (`clamp`):** Eliminates jumpy layout shifts between discrete breakpoints, providing continuous scaling between minimum and maximum bounds.
 
 
 ---
@@ -1230,4 +1245,229 @@ export function emitTaskCreated(userId: string, task: any) {
 *   **HTTP Polling:** The client repeatedly makes HTTP requests (e.g. every 3 seconds). Generates massive header overhead (HTTP headers on every poll), consumes battery, and introduces an average latency of half the polling interval.
 *   **WebSocket:** Establishes a persistent, bi-directional TCP connection after a single HTTP upgrade handshake. Server pushes events immediately (`task:created`) with minimal frame overhead (< 6 bytes), providing sub-millisecond real-time synchronization.
 *   **Tenant Isolation:** Using Socket.IO rooms (`user:${userId}`) ensures broadcasts are strictly isolated to the authenticated user's active devices and tabs.
+
+
+---
+# 38. MongoDB Aggregation Pipelines
+
+## Implementation & Relevant Files
+*   **Files:** `server/src/controllers/taskController.ts` (`getTaskStats`), `server/src/routes/taskRoutes.ts`.
+*   **Endpoint:** `GET /api/tasks/stats` (protected by `authenticate`).
+*   **Verification:** `server/src/tests/integration/taskAggregation.test.ts`.
+
+## Key Code Architecture
+```typescript
+export const getTaskStats = async (req: AuthRequest, res: Response): Promise<void> => {
+    const userObjectId = new mongoose.Types.ObjectId(req.user.userId);
+
+    const result = await Task.aggregate([
+        // Stage 1: Tenant boundary isolation
+        { $match: { userId: userObjectId } },
+        // Stage 2: Parallel multi-dimensional facets
+        {
+            $facet: {
+                byStatus: [
+                    { $group: { _id: '$status', count: { $sum: 1 } } },
+                    { $sort: { count: -1 } }
+                ],
+                byPriority: [
+                    { $group: { _id: '$priority', count: { $sum: 1 } } },
+                    { $sort: { _id: 1 } }
+                ],
+                overview: [
+                    {
+                        $project: {
+                            status: 1,
+                            attachmentCount: { $size: { $ifNull: ['$attachments', []] } },
+                            attachmentBytes: { $sum: '$attachments.size' }
+                        }
+                    },
+                    {
+                        $group: {
+                            _id: null,
+                            totalTasks: { $sum: 1 },
+                            completedTasks: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
+                            pendingTasks: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
+                            totalAttachments: { $sum: '$attachmentCount' },
+                            totalAttachmentBytes: { $sum: '$attachmentBytes' }
+                        }
+                    },
+                    {
+                        $project: {
+                            _id: 0,
+                            totalTasks: 1,
+                            completedTasks: 1,
+                            pendingTasks: 1,
+                            totalAttachments: 1,
+                            totalAttachmentBytes: 1,
+                            completionRate: {
+                                $cond: [
+                                    { $gt: ['$totalTasks', 0] },
+                                    { $round: [{ $multiply: [{ $divide: ['$completedTasks', '$totalTasks'] }, 100] }, 1] },
+                                    0
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ]);
+};
+```
+
+## Viva Explanation: Aggregation Pipeline vs Application-Level Processing
+*   **Database Engine Efficiency:** MongoDB executes filtering, indexing, grouping, and arithmetic within native C++ routines inside the database server. Doing this in Node.js would require fetching thousands of task documents over the network into V8 heap memory.
+*   **Pipeline Stages:**
+    *   `$match` reduces the candidate document set as early as possible (using the indexed `userId` field).
+    *   `$facet` enables multi-dimensional reporting in a single pass without querying the collection multiple times.
+    *   `$cond` acts as an inline ternary operator for conditional count increments.
+    *   `$project` reshapes documents and computes derivative metrics (`completionRate`).
+
+
+---
+# 39. MongoDB Embedding vs Referencing Relationships
+
+## Implementation & Relevant Files
+*   **Files:** `server/src/models/Task.ts`, `server/src/models/User.ts`, `server/src/models/FocusSession.ts`, `server/src/controllers/taskController.ts`.
+*   **Verification:** `server/src/tests/integration/relationships.test.ts`.
+
+## Key Code Architecture
+```typescript
+// Task Schema demonstrating both patterns:
+const taskSchema = new mongoose.Schema({
+    title: { type: String, required: true },
+    
+    // Referenced Relationship (Unbounded 1:N foreign key)
+    userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+        index: true
+    },
+
+    // Embedded Subdocuments (Bounded 1:Few inline array)
+    attachments: [{
+        id: { type: String, required: true },
+        originalName: { type: String, required: true },
+        filename: { type: String, required: true },
+        size: { type: Number, required: true },
+        uploadedAt: { type: Date, default: Date.now }
+    }]
+});
+
+// Dynamic on-demand population in getTaskById:
+let taskQuery = Task.findOne({ _id: req.params.taskId, userId: req.user?.userId });
+if (req.query.populate === 'user') {
+    taskQuery = taskQuery.populate('userId', 'name email role');
+}
+const task = await taskQuery;
+```
+
+## Viva Explanation: Embedding vs Referencing Decision Matrix
+| Criterion | Embedded Subdocuments (`attachments`) | Referenced Entities (`userId`, `taskId`) |
+| :--- | :--- | :--- |
+| **Cardinality** | 1-to-few (0–10 items per task) | 1-to-unbounded (10,000+ tasks per user) |
+| **BSON Boundary** | Fits comfortably within 16MB document limit | High risk of exceeding 16MB if embedded in User |
+| **Query Pattern** | Retrieved together with task detail 100% of time | Users and tasks queried independently in different views |
+| **Lifecycle** | Strictly dependent (cascade deleted with task) | Independent entity lifecycles |
+| **Atomicity** | Guaranteed atomic read/write in single document | Requires multi-document transaction or population |
+
+
+---
+# 40. Payment Gateway Integration (Sandbox & Cryptographic Verification)
+
+## Implementation & Relevant Files
+*   **Files:** `server/src/controllers/paymentController.ts`, `server/src/routes/paymentRoutes.ts`, `server/src/models/Payment.ts`, `server/src/models/User.ts`, `client/src/pages/Upgrade.tsx`.
+*   **Endpoints:** `POST /api/payment/create-order`, `POST /api/payment/verify`, `GET /api/payment/status`.
+*   **Verification:** `server/src/tests/integration/payment.test.ts`.
+
+## Key Code Architecture
+```typescript
+// Server-side cryptographic HMAC-SHA256 verification
+export const verifyPayment = async (req: AuthRequest, res: Response): Promise<void> => {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+        res.status(400).json({ error: 'Missing required payment verification parameters' });
+        return;
+    }
+
+    const payment = await Payment.findOne({ orderId: razorpay_order_id, userId: req.user.userId });
+    if (!payment) return res.status(404).json({ error: 'Payment order not found' });
+
+    // Mathematical HMAC calculation against shared server secret
+    const expectedSignature = crypto
+        .createHmac('sha256', config.RAZORPAY_KEY_SECRET as string)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+        .digest('hex');
+
+    // Constant-time buffer comparison preventing timing side-channel attacks
+    const isValid = razorpay_signature.length === expectedSignature.length &&
+        crypto.timingSafeEqual(
+            Buffer.from(expectedSignature, 'utf8'),
+            Buffer.from(razorpay_signature, 'utf8')
+        );
+
+    if (!isValid) {
+        payment.status = 'failed';
+        await payment.save();
+        res.status(400).json({ error: 'Invalid payment signature. Verification failed.' });
+        return;
+    }
+
+    payment.status = 'paid';
+    payment.paymentId = razorpay_payment_id;
+    payment.signature = razorpay_signature;
+    await payment.save();
+
+    await User.findByIdAndUpdate(req.user.userId, { isPro: true });
+    res.status(200).json({ success: true, message: 'Payment verified and Pro tier activated' });
+};
+```
+
+## Viva Explanation: Payment Security Architecture
+*   **Why Never Trust the Client?** Any client-side request or response can be intercepted, forged, or replayed using tools like Postman, Burp Suite, or browser DevTools. A malicious user could easily spoof `fetch('/api/payment/success', { body: { paid: true } })`.
+*   **Cryptographic Guarantee:** The gateway computes a hash using the merchant's private secret (`RAZORPAY_KEY_SECRET`) which is known **only** to the payment gateway and the backend server. The client cannot forge this signature without possessing the private secret.
+*   **Timing-Safe Comparison (`crypto.timingSafeEqual`):** Standard string comparison (`a === b`) terminates on the first non-matching character, allowing attackers to measure nanosecond response latency differences to deduce correct bytes sequentially. Constant-time comparison ensures identical execution time regardless of character match position.
+
+
+---
+# 41. Server-Side Rendering (ReactDOMServer)
+
+## Implementation & Relevant Files
+*   **Files:** `server/src/ssr/renderTaskSummary.ts`, `server/src/routes/ssrRoutes.ts`, `server/src/index.ts`.
+*   **Endpoint:** `GET /ssr-demo` (publicly accessible).
+*   **Verification:** `server/src/tests/integration/ssr.test.ts`.
+
+## Key Code Architecture
+```typescript
+import React from 'react';
+import { renderToString } from 'react-dom/server';
+
+export function renderTaskSummaryHtml(props: TaskSummarySsrProps): string {
+    // Synchronously compile pure React component tree to HTML markup string
+    const componentMarkup = renderToString(React.createElement(TaskSummaryComponent, props));
+
+    // Embed markup inside full semantic HTML5 shell with SEO metadata
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${props.appName} - Server-Side Rendered Snapshot</title>
+    <meta name="description" content="Instant server-rendered productivity snapshot powered by FocusFlow and ReactDOMServer." />
+    <style>body { margin: 0; background-color: #f8fafc; font-family: sans-serif; }</style>
+</head>
+<body>
+    <div id="root">${componentMarkup}</div>
+</body>
+</html>`;
+}
+```
+
+## Viva Explanation: SSR Trade-Offs & Architecture
+*   **First Contentful Paint (FCP):** In traditional SPAs, the browser downloads an empty `<div id="root"></div>`, requests large JavaScript bundles, parses them, and executes client queries before the user sees content. SSR delivers the complete rendered markup in the first HTTP response packet, providing near-instant visual paint.
+*   **SEO / Web Crawlers:** Simple web search spiders and social preview bots (Twitter cards, OpenGraph) do not execute complex JavaScript. SSR delivers full semantic content and metadata on initial page load.
+*   **Trade-Off:** SSR increases server CPU utilization on every page request compared to static file serving from a CDN. TaskFlow demonstrates this pattern in an isolated, targeted reporting endpoint (`/ssr-demo`) balancing server load and client benefits.
+
 
