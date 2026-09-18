@@ -138,9 +138,24 @@ export const getTaskStats = async (req: AuthRequest, res: Response): Promise<voi
     }
 };
 
+/**
+ * MongoDB Relationship Handling:
+ * Demonstrates the architectural difference between:
+ * - Embedded Subdocuments: task.attachments are stored inline inside the task document,
+ *   retrieved with zero additional queries or joins.
+ * - Referenced Entities: task.userId references the User collection. When requested
+ *   via query param (?populate=user), Mongoose populates the referenced User document
+ *   selecting safe public fields ('name email role').
+ */
 export const getTaskById = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const task = await Task.findOne({ _id: req.params.taskId, userId: req.user?.userId });
+        let taskQuery = Task.findOne({ _id: req.params.taskId, userId: req.user?.userId });
+
+        if (req.query.populate === 'user') {
+            taskQuery = taskQuery.populate('userId', 'name email role') as any;
+        }
+
+        const task = await taskQuery;
         if (!task) {
             res.status(404).json({ error: 'Task not found' });
             return;
