@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
     getTasks,
+    getTaskStats,
     getTaskById,
     createTask,
     updateTask,
@@ -19,6 +20,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/', getTasks);
+router.get('/stats', getTaskStats);
 router.post('/', validate(createTaskSchema), createTask);
 router.get('/:taskId', getTaskById);
 router.patch('/:taskId', updateTask);

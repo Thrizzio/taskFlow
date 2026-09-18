@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import mongoose from 'mongoose';
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { Task } from '../models/Task';
@@ -16,6 +17,124 @@ export const getTasks = async (req: AuthRequest, res: Response): Promise<void> =
     } catch (error) {
         console.error('getTasks error:', error);
         res.status(500).json({ error: 'Failed to fetch tasks' });
+    }
+};
+
+/**
+ * MongoDB Aggregation Pipeline
+ * Computes multi-dimensional task metrics scoped strictly to the authenticated user.
+ * Stages:
+ *   1. $match: isolates tenant documents using indexed userId
+ *   2. $facet: parallel execution of:
+ *      - byStatus: grouped counts sorted descending
+ *      - byPriority: grouped counts sorted by priority
+ *      - overview: projects attachment sizes, groups sums with conditional expressions ($cond),
+ *                  and computes rounded completion rate via arithmetic operators ($round, $multiply, $divide)
+ */
+export const getTaskStats = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        if (!req.user?.userId) {
+            res.status(401).json({ error: 'Unauthorized' });
+            return;
+        }
+
+        // Use valid ObjectId or string match depending on ID format
+        let matchUserId: any = req.user.userId;
+        if (mongoose.Types.ObjectId.isValid(req.user.userId)) {
+            matchUserId = new mongoose.Types.ObjectId(req.user.userId);
+        }
+
+        const result = await Task.aggregate([
+            // Stage 1: Match tasks belonging exclusively to authenticated user
+            { $match: { userId: matchUserId } },
+            // Stage 2: Faceted parallel multi-stage sub-pipelines
+            {
+                $facet: {
+                    byStatus: [
+                        {
+                            $group: {
+                                _id: '$status',
+                                count: { $sum: 1 }
+                            }
+                        },
+                        { $sort: { count: -1 } }
+                    ],
+                    byPriority: [
+                        {
+                            $group: {
+                                _id: '$priority',
+                                count: { $sum: 1 }
+                            }
+                        },
+                        { $sort: { _id: 1 } }
+                    ],
+                    overview: [
+                        {
+                            $project: {
+                                status: 1,
+                                attachmentCount: { $size: { $ifNull: ['$attachments', []] } },
+                                attachmentBytes: { $sum: '$attachments.size' }
+                            }
+                        },
+                        {
+                            $group: {
+                                _id: null,
+                                totalTasks: { $sum: 1 },
+                                completedTasks: {
+                                    $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] }
+                                },
+                                pendingTasks: {
+                                    $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] }
+                                },
+                                totalAttachments: { $sum: '$attachmentCount' },
+                                totalAttachmentBytes: { $sum: '$attachmentBytes' }
+                            }
+                        },
+                        {
+                            $project: {
+                                _id: 0,
+                                totalTasks: 1,
+                                completedTasks: 1,
+                                pendingTasks: 1,
+                                totalAttachments: 1,
+                                totalAttachmentBytes: 1,
+                                completionRate: {
+                                    $cond: [
+                                        { $gt: ['$totalTasks', 0] },
+                                        {
+                                            $round: [
+                                                { $multiply: [{ $divide: ['$completedTasks', '$totalTasks'] }, 100] },
+                                                1
+                                            ]
+                                        },
+                                        0
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        ]);
+
+        const facetResult = result[0] || {};
+        const overview = facetResult.overview && facetResult.overview[0] ? facetResult.overview[0] : {
+            totalTasks: 0,
+            completedTasks: 0,
+            pendingTasks: 0,
+            totalAttachments: 0,
+            totalAttachmentBytes: 0,
+            completionRate: 0
+        };
+
+        res.json({
+            overview,
+            byStatus: facetResult.byStatus || [],
+            byPriority: facetResult.byPriority || []
+        });
+    } catch (error) {
+        console.error('getTaskStats aggregation error:', error);
+        res.status(500).json({ error: 'Failed to compute task statistics' });
     }
 };
 
