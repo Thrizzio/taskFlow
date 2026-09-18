@@ -61,16 +61,33 @@ export const TaskDetail = () => {
     if (!task) return <div style={{ padding: '2rem' }}>Loading task {taskId}...</div>;
 
     return (
-        <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '800px', margin: '0 auto' }}>
+        <div style={{ padding: 'clamp(1rem, 4vw, 2rem)', fontFamily: 'sans-serif', maxWidth: '800px', margin: '0 auto' }}>
+            <style>
+                {`
+                @media (max-width: 600px) {
+                    .task-actions {
+                        flex-direction: column !important;
+                        align-items: stretch !important;
+                    }
+                    .task-actions button, .task-actions a {
+                        text-align: center;
+                    }
+                    .attachment-form {
+                        flex-direction: column !important;
+                        align-items: stretch !important;
+                    }
+                }
+                `}
+            </style>
             <header style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
                 <Link to="/tasks">← Back to Tasks</Link>
-                <button onClick={handleDelete} style={{ background: 'red', color: 'white', border: 'none', padding: '8px' }}>Delete Task</button>
+                <button onClick={handleDelete} style={{ background: 'red', color: 'white', border: 'none', padding: '8px', cursor: 'pointer' }}>Delete Task</button>
             </header>
 
             <h1>{task.title}</h1>
             <p style={{ color: '#666' }}>{task.description || 'No description provided'}</p>
 
-            <div style={{ margin: '2rem 0', display: 'flex', gap: '1rem' }}>
+            <div className="task-actions" style={{ margin: '2rem 0', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                 <button onClick={toggleStatus} style={{ padding: '10px 20px', cursor: 'pointer' }}>
                     Mark as {task.status === 'pending' ? 'Completed' : 'Pending'}
                 </button>
@@ -88,6 +105,7 @@ export const TaskDetail = () => {
             <div style={{ borderTop: '1px solid #ccc', paddingTop: '1rem', marginTop: '2rem' }}>
                 <h3>Attachments</h3>
                 <form
+                    className="attachment-form"
                     onSubmit={async (e) => {
                         e.preventDefault();
                         const fileInput = (e.target as any).elements.attachmentFile;
@@ -113,9 +131,9 @@ export const TaskDetail = () => {
                             console.error('Upload failed', err);
                         }
                     }}
-                    style={{ marginBottom: '1rem', display: 'flex', gap: '8px' }}
+                    style={{ marginBottom: '1rem', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}
                 >
-                    <input type="file" name="attachmentFile" accept=".pdf,.png,.jpg,.jpeg,.txt,.md" />
+                    <input type="file" name="attachmentFile" accept=".pdf,.png,.jpg,.jpeg,.txt,.md" style={{ maxWidth: '100%' }} />
                     <button type="submit" style={{ padding: '6px 12px', background: '#0070f3', color: 'white', border: 'none', cursor: 'pointer' }}>
                         Upload Attachment
                     </button>

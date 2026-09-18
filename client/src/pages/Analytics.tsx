@@ -41,8 +41,22 @@ export const Analytics = () => {
     };
 
     return (
-        <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '800px', margin: '0 auto' }}>
-            <header style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
+        <div style={{ padding: 'clamp(1rem, 4vw, 2rem)', fontFamily: 'sans-serif', maxWidth: '800px', margin: '0 auto' }}>
+            <style>
+                {`
+                @media (max-width: 600px) {
+                    .analytics-header {
+                        flex-direction: column !important;
+                        align-items: flex-start !important;
+                        gap: 10px;
+                    }
+                    .analytics-header h2 {
+                        font-size: 1.3rem;
+                    }
+                }
+                `}
+            </style>
+            <header className="analytics-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <h2>Productivity Analytics (Powered by PostgreSQL JOIN)</h2>
                 <Link to="/dashboard">Back to Dashboard</Link>
             </header>
@@ -50,25 +64,27 @@ export const Analytics = () => {
             {error ? (
                 <p style={{ color: 'red' }}>{error}</p>
             ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                        <tr style={{ background: '#f5f5f5', textAlign: 'left' }}>
-                            <th style={{ padding: '12px', border: '1px solid #ddd' }}>User</th>
-                            <th style={{ padding: '12px', border: '1px solid #ddd' }}>Task</th>
-                            <th style={{ padding: '12px', border: '1px solid #ddd' }}>Time Spent</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {data.length === 0 && <tr><td colSpan={3} style={{ padding: '12px', textAlign: 'center' }}>No analytical data found yet. Build some focus sessions!</td></tr>}
-                        {data.map((row, idx) => (
-                            <tr key={idx} style={{ background: row.userName === user?.name ? '#e6f7ff' : 'transparent' }}>
-                                <td style={{ padding: '12px', border: '1px solid #ddd' }}>{row.userName} {row.userName === user?.name ? '(You)' : ''}</td>
-                                <td style={{ padding: '12px', border: '1px solid #ddd' }}>{row.taskTitle}</td>
-                                <td style={{ padding: '12px', border: '1px solid #ddd' }}>{formatTime(row.totalSeconds)}</td>
+                <div className="table-responsive" style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', border: '1px solid #ddd', borderRadius: '4px' }}>
+                    <table style={{ width: '100%', minWidth: '480px', borderCollapse: 'collapse' }}>
+                        <thead>
+                            <tr style={{ background: '#f5f5f5', textAlign: 'left' }}>
+                                <th style={{ padding: '12px', border: '1px solid #ddd' }}>User</th>
+                                <th style={{ padding: '12px', border: '1px solid #ddd' }}>Task</th>
+                                <th style={{ padding: '12px', border: '1px solid #ddd' }}>Time Spent</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {data.length === 0 && <tr><td colSpan={3} style={{ padding: '12px', textAlign: 'center' }}>No analytical data found yet. Build some focus sessions!</td></tr>}
+                            {data.map((row, idx) => (
+                                <tr key={idx} style={{ background: row.userName === user?.name ? '#e6f7ff' : 'transparent' }}>
+                                    <td style={{ padding: '12px', border: '1px solid #ddd' }}>{row.userName} {row.userName === user?.name ? '(You)' : ''}</td>
+                                    <td style={{ padding: '12px', border: '1px solid #ddd' }}>{row.taskTitle}</td>
+                                    <td style={{ padding: '12px', border: '1px solid #ddd' }}>{formatTime(row.totalSeconds)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             )}
         </div>
     );

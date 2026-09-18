@@ -5,12 +5,12 @@ export const Dashboard = () => {
     const { user, logout } = useAuth();
 
     return (
-        <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
-            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <h1>FocusFlow Dashboard</h1>
-                <div>
-                    <span style={{ marginRight: '1rem' }}>Welcome, {user?.name}</span>
-                    <button onClick={logout} style={{ padding: '8px', cursor: 'pointer' }}>Logout</button>
+        <div style={{ padding: 'clamp(1rem, 4vw, 2rem)', fontFamily: 'sans-serif', maxWidth: '1000px', margin: '0 auto' }}>
+            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+                <h1 style={{ margin: 0 }}>FocusFlow Dashboard</h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                    <span>Welcome, {user?.name}</span>
+                    <button onClick={logout} style={{ padding: '8px 16px', cursor: 'pointer' }}>Logout</button>
                 </div>
             </header>
 

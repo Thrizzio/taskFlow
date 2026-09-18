@@ -147,12 +147,19 @@ export const Tasks = () => {
                 @media (max-width: 600px) {
                     .task-card {
                         flex-direction: column !important;
+                        align-items: flex-start !important;
                         gap: 12px;
                     }
                     .header-container {
                         flex-direction: column !important;
                         align-items: flex-start !important;
                         gap: 10px;
+                    }
+                    .task-form {
+                        flex-direction: column !important;
+                    }
+                    .filter-container {
+                        flex-wrap: wrap;
                     }
                 }
                 `}
@@ -194,7 +201,7 @@ export const Tasks = () => {
                 </div>
             )}
 
-            <form onSubmit={handleCreate} style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+            <form className="task-form" onSubmit={handleCreate} style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
                 <input
                     type="text"
                     placeholder="New Task Title"
@@ -216,7 +223,7 @@ export const Tasks = () => {
                 </button>
             </form>
 
-            <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div className="filter-container" style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                 <label htmlFor="statusFilter" style={{ fontWeight: 600 }}>
                     Filter by status:
                 </label>
@@ -245,6 +252,7 @@ export const Tasks = () => {
                 {visibleTasks.map(task => (
                     <div
                         key={task._id}
+                        className="task-card"
                         style={{
                             display: 'flex',
                             justifyContent: 'space-between',
