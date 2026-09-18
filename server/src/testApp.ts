@@ -19,6 +19,7 @@ import agentRoutes from './routes/agentRoutes';
 import adminRoutes from './routes/adminRoutes';
 import sessionRoutes from './routes/sessionRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
+import paymentRoutes from './routes/paymentRoutes';
 import { sanitizeRequest } from './middleware/sanitize';
 
 export function createApp() {
@@ -33,6 +34,7 @@ export function createApp() {
     app.use('/api/analytics', analyticsRoutes);
     app.use('/api/agent', agentRoutes);
     app.use('/api/admin', adminRoutes);
+    app.use('/api/payment', paymentRoutes);
 
     app.get('/api/health', (_req, res) => {
         res.json({ status: 'ok' });

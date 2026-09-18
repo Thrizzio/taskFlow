@@ -10,6 +10,7 @@ import sessionRoutes from './routes/sessionRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
 import agentRoutes from './routes/agentRoutes';
 import adminRoutes from './routes/adminRoutes';
+import paymentRoutes from './routes/paymentRoutes';
 import { initPgDB } from './db/pg';
 import { sanitizeRequest } from './middleware/sanitize';
 import { startScheduler } from './jobs/scheduler';
@@ -27,6 +28,7 @@ app.use('/api/focus-sessions', sessionRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/agent', agentRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/payment', paymentRoutes);
 
 // Add simple health check
 app.get('/api/health', (req, res) => {

@@ -27,6 +27,10 @@ const config = {
   CLEANUP_CRON_SCHEDULE: process.env.CLEANUP_CRON_SCHEDULE || '0 * * * *',
   ORPHANED_FILE_MAX_AGE_HOURS: parseInt(process.env.ORPHANED_FILE_MAX_AGE_HOURS || '24', 10),
 
+  // Payment Gateway configuration (Sandbox / Test Mode)
+  RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || 'rzp_test_mock_key',
+  RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || 'rzp_test_mock_secret',
+
   // ── Gemini pricing assumptions ────────────────────────────────────────────
   // Source: Google AI pricing for gemini-2.0-flash-lite (per 1,000 tokens).
   // Update these values here if pricing changes; no other file should define

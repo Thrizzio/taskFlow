@@ -8,6 +8,7 @@ import { Tasks } from './pages/Tasks';
 import { TaskDetail } from './pages/TaskDetail';
 import { Focus } from './pages/Focus';
 import { Analytics } from './pages/Analytics';
+import { Upgrade } from './pages/Upgrade';
 import { JSConceptsPage } from './features/javascript-concepts/JSConceptsPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -32,6 +33,7 @@ function App() {
 
             <Route path="/focus" element={<Focus />} />
             <Route path="/analytics" element={<Analytics />} />
+            <Route path="/upgrade" element={<Upgrade />} />
             <Route path="/javascript-concepts" element={<JSConceptsPage />} />
           </Route>
         </Routes>
