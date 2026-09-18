@@ -6,6 +6,7 @@ export interface AuthRequest extends Request {
     user?: {
         userId: string;
         name: string;
+        role: 'user' | 'admin';
     };
 }
 
@@ -19,7 +20,11 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
     const token = authHeader.split(' ')[1];
     try {
         const decoded = jwt.verify(token, config.JWT_SECRET as string) as any;
-        req.user = { userId: decoded.userId, name: decoded.name };
+        req.user = {
+            userId: decoded.userId,
+            name: decoded.name,
+            role: decoded.role || 'user',
+        };
         next();
     } catch (err) {
         res.status(401).json({ error: 'Unauthorized: invalid token' });

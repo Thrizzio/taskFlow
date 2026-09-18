@@ -22,7 +22,7 @@ FocusFlow does not aim to provide:
 
 * Social features
 * Payments
-* Real-time collaboration
+* Multi-user concurrent document co-editing (single-user real-time device sync is supported)
 * Push notifications
 * Fully autonomous AI agents with dynamic tool selection
 
@@ -336,3 +336,141 @@ To provide sophisticated user-level analytic reports leveraging native relationa
 
 ## Purpose
 To maintain fast analytic query times even as session logs grow exponentially.
+
+
+---
+# 25. Input Sanitization & Injection Awareness
+
+## Purpose
+Protect application databases and clients against NoSQL operator injection, SQL injection, and Stored/Reflected Cross-Site Scripting (XSS).
+
+## Requirements
+*   Strip dangerous MongoDB query operators (`$` prefix and `.` path separators) from request bodies, parameters, and query strings.
+*   Escape HTML control characters (`<`, `>`, `&`, `"`, `'`) on free-text inputs before database persistence.
+*   Enforce parameter binding on all relational queries to eliminate SQL injection attack vectors.
+*   Enforce field allowlists on update endpoints to prevent unexpected schema mutation.
+
+
+---
+# 26. Third-Party OAuth 2.0 Authentication
+
+## Purpose
+Allow users to sign up and authenticate frictionlessly using their existing Google identity credentials while avoiding plaintext credential exposure.
+
+## Requirements
+*   Provide a standardized OAuth 2.0 Authorization Code exchange flow with Google Identity Services.
+*   Expose `GET /api/auth/google/url` returning the configured authorization consent URL with state nonce.
+*   Expose `POST /api/auth/google/callback` to securely exchange the authorization code for verified Google user profiles.
+*   Auto-provision new accounts or link existing accounts by email address, issuing a standard TaskFlow JWT.
+*   Provide fallback error states when credentials or network exchanges fail.
+
+
+---
+# 27. Role-Based Access Control (RBAC)
+
+## Purpose
+Enforce strict authorization boundaries separating standard application users from administrative operators.
+
+## Requirements
+*   Support explicit user roles: `user` (default) and `admin`.
+*   Embed user roles directly into signed JWT claims to permit fast, stateless middleware verification.
+*   Provide an extensible `requireRole('admin')` Express route guard.
+*   Unauthenticated requests must return HTTP 401 Unauthorized; authenticated users lacking necessary roles must return HTTP 403 Forbidden.
+*   Expose admin-only operational endpoints (`GET /api/admin/overview`, `GET /api/admin/users`).
+
+
+---
+# 28. File Upload Handling & Storage Security
+
+## Purpose
+Enable users to attach relevant study materials, notes, and documents to tasks securely without exposing the server to remote code execution or storage exhaustion.
+
+## Requirements
+*   Accept file uploads via `multipart/form-data` on task detail views (`POST /api/tasks/:taskId/attachments`).
+*   Enforce file size limits (5 MB maximum per attachment).
+*   Enforce strict MIME-type and file extension whitelisting (`.pdf`, `.png`, `.jpg`, `.jpeg`, `.txt`, `.md`).
+*   Store files on disk using cryptographically random UUID filenames to prevent file overwrite attacks and directory enumeration.
+*   Enforce path traversal prevention checks (`isSafeFilePath`) before serving or deleting files.
+*   Provide download (`GET /api/tasks/:taskId/attachments/:attachmentId`) and deletion endpoints with ownership checks.
+
+
+---
+# 29. Production Frontend Deployment
+
+## Purpose
+Provide a production-grade, containerized frontend distribution optimized for cloud environments, high availability, and low latency.
+
+## Requirements
+*   Build a standalone multi-stage Docker container (`client/Dockerfile`) compiling React + Vite TypeScript into static assets.
+*   Serve production assets using Nginx with Single-Page Application (SPA) routing fallback (`try_files $uri $uri/ /index.html`).
+*   Configure essential HTTP security headers (`X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `X-XSS-Protection: 1; mode=block`).
+*   Enable asset caching with immutable cache headers for hashed static bundles.
+*   Provide parameterized runtime environment configuration via `VITE_API_URL`.
+
+
+---
+# 30. Object-Relational Mapping (Prisma ORM)
+
+## Purpose
+Provide type-safe schema modeling, automatic migration management, and compile-time query verification for the PostgreSQL analytics database.
+
+## Requirements
+*   Define a declarative relational schema (`server/prisma/schema.prisma`) modeling Users, Tasks, and Analytics Sessions with strict foreign keys and cascading delete rules.
+*   Generate a strongly typed client (`@prisma/client`) providing end-to-end type safety in query code.
+*   Provide parallel ORM implementations alongside raw SQL queries to benchmark performance and developer ergonomics.
+
+
+---
+# 31. Database Transactions (ACID Persistence)
+
+## Purpose
+Guarantee data integrity across multi-entity persistence operations in the analytics store, ensuring no orphaned or partial records exist if failures occur.
+
+## Requirements
+*   Wrap multi-step analytics sync operations (User upsert, Task upsert, Analytics Session insertion) in an atomic `prisma.$transaction`.
+*   Enforce all ACID properties: Atomicity (all succeed or all roll back), Consistency (foreign key references maintained), Isolation (uncommitted writes invisible to concurrent queries), and Durability (committed writes persisted to disk).
+*   Encapsulate transaction boundaries explicitly within the PostgreSQL store, isolating it from MongoDB operational documents.
+
+
+---
+# 32. Redis Caching Layer
+
+## Purpose
+Accelerate repeated read-heavy analytics queries, reduce PostgreSQL load, and improve API response latency using an in-memory Cache-Aside pattern.
+
+## Requirements
+*   Implement the Cache-Aside pattern on `GET /api/analytics/time-by-task`:
+    *   Check Redis for key `analytics:user:${userId}:time-by-task`.
+    *   On Cache HIT: Return cached data immediately with response header `X-Cache: HIT`.
+    *   On Cache MISS: Execute the relational query, write the result to Redis with a configurable TTL (default 300s), and return with header `X-Cache: MISS`.
+*   Implement proactive Cache Invalidation: Purge user analytics keys whenever new focus sessions are recorded (`POST /api/focus-sessions`).
+*   Ensure offline resilience: Gracefully fall back to direct database execution without failing requests if Redis is unavailable.
+
+
+---
+# 33. Scheduled Maintenance Jobs (Cron)
+
+## Purpose
+Automate recurring background housekeeping tasks to prevent disk bloat and purge abandoned or orphaned file attachments.
+
+## Requirements
+*   Schedule recurring background execution using `node-cron` with configurable cron expressions (default hourly: `0 * * * *`).
+*   Identify orphaned files: Files physically present on disk in the storage directory that are no longer referenced in any task's attachment list in MongoDB.
+*   Enforce a safety grace period (default 24h) before deletion to avoid removing in-flight concurrent uploads.
+*   Provide fail-safe error handling: Skip deletions if the database query fails to prevent accidental data loss.
+*   Export manual trigger capability (`runMaintenanceJob()`) returning execution telemetry (`scanned`, `deleted`, `reclaimedBytes`).
+
+
+---
+# 34. Real-Time WebSocket Synchronization
+
+## Purpose
+Provide instant, low-latency UI synchronization across browser tabs and devices whenever tasks are modified or focus sessions are completed, without inefficient HTTP polling.
+
+## Requirements
+*   Integrate Socket.IO server on top of the Express HTTP server.
+*   Authenticate WebSocket connection handshakes using JWT bearer tokens; reject unauthenticated sockets before connection establishment.
+*   Enforce user room isolation: Automatically route connected sockets into private user rooms (`user:${userId}`); prevent cross-user message leakage.
+*   Emit real-time events on task lifecycle changes (`task:created`, `task:updated`, `task:deleted`) and session completion (`focus:completed`).
+*   Client integration: Connect via `SocketContext`, update React state optimistically on incoming events, and display real-time connection status indicators.
+

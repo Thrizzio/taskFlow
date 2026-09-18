@@ -1,40 +1,37 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
+import { API_BASE_URL } from '../config/api';
 
-interface Task {
+export interface Task {
     _id: string;
     title: string;
     description: string;
     status: string;
     priority: string;
+    subject: string;
 }
 
-/*
-    CLOSURE
-
-    createTaskFilter() is the outer function.
-    statusFilter belongs to its lexical scope.
-
-    It returns filterTask(), an inner function that uses
-    statusFilter even after createTaskFilter() has finished.
-
-    Therefore filterTask() closes over statusFilter.
-
-    Example:
-
-        const filter = createTaskFilter('pending');
-
-        filter(task);
-
-    The returned filter function remembers that statusFilter
-    was 'pending'.
-*/
+/**
+ * JavaScript Closures in Production
+ *
+ * createTaskFilter returns a new function that closes over `statusFilter`.
+ * The returned function retains access to `statusFilter` from its lexical scope
+ * even after createTaskFilter has finished executing.
+ *
+ * When statusFilter changes in React state, the useEffect hook below re-executes
+ * createTaskFilter with the new value, creating a fresh closure.
+ *
+ * Test: server/src/tests/unit/createTaskFilter.test.ts verifies this closure
+ * logic in isolation using Vitest.
+ */
 export function createTaskFilter(statusFilter: string) {
     let currentFilter = statusFilter;
 
     function filterTask(task: Task): boolean {
-        return currentFilter === 'all' || task.status === currentFilter;
+        if (currentFilter === 'all') return true;
+        return task.status === currentFilter;
     }
 
     return filterTask;
@@ -46,27 +43,65 @@ export const Tasks = () => {
     const [statusFilter, setStatusFilter] = useState('all');
     const [title, setTitle] = useState('');
     const { token } = useAuth();
+    const { socket, isConnected } = useSocket();
     const [isLoading, setIsLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
 
     const fetchTasks = async () => {
+        setIsLoading(true);
+        setErrorMsg('');
         try {
-            const res = await fetch('http://localhost:4000/api/tasks', {
+            const res = await fetch(`${API_BASE_URL}/api/tasks`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
             if (res.ok) {
                 const data = await res.json();
                 setTasks(data);
+            } else {
+                setErrorMsg('Failed to fetch tasks from server.');
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
+            setErrorMsg(err.message || 'Error connecting to server.');
+        } finally {
+            setIsLoading(false);
         }
     };
 
     useEffect(() => {
         fetchTasks();
     }, [token]);
+
+    // Listen for real-time WebSocket updates to avoid polling
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleTaskCreated = (newTask: Task) => {
+            setTasks((prev) => {
+                if (prev.some((t) => t._id === newTask._id)) return prev;
+                return [newTask, ...prev];
+            });
+        };
+
+        const handleTaskUpdated = (updatedTask: Task) => {
+            setTasks((prev) => prev.map((t) => (t._id === updatedTask._id ? updatedTask : t)));
+        };
+
+        const handleTaskDeleted = ({ taskId }: { taskId: string }) => {
+            setTasks((prev) => prev.filter((t) => t._id !== taskId));
+        };
+
+        socket.on('task:created', handleTaskCreated);
+        socket.on('task:updated', handleTaskUpdated);
+        socket.on('task:deleted', handleTaskDeleted);
+
+        return () => {
+            socket.off('task:created', handleTaskCreated);
+            socket.off('task:updated', handleTaskUpdated);
+            socket.off('task:deleted', handleTaskDeleted);
+        };
+    }, [socket]);
 
     useEffect(() => {
         const filter = createTaskFilter(statusFilter);
@@ -80,7 +115,7 @@ export const Tasks = () => {
         if (!title) return;
 
         try {
-            const res = await fetch('http://localhost:4000/api/tasks', {
+            const res = await fetch(`${API_BASE_URL}/api/tasks`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -96,9 +131,12 @@ export const Tasks = () => {
             if (res.ok) {
                 setTitle('');
                 fetchTasks();
+            } else {
+                setErrorMsg('Failed to create task.');
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
+            setErrorMsg(err.message || 'Error creating task.');
         }
     };
 
@@ -119,10 +157,42 @@ export const Tasks = () => {
                 }
                 `}
             </style>
-            <header className="header-container" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
-                <h2>Task Management</h2>
+            <header className="header-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <h2>Task Management</h2>
+                    <span style={{
+                        fontSize: '0.75rem',
+                        padding: '3px 8px',
+                        borderRadius: '12px',
+                        backgroundColor: isConnected ? '#e6f4ea' : '#f1f3f4',
+                        color: isConnected ? '#137333' : '#5f6368',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                    }}>
+                        <span style={{
+                            width: '7px',
+                            height: '7px',
+                            borderRadius: '50%',
+                            backgroundColor: isConnected ? '#34a853' : '#9aa0a6'
+                        }} />
+                        {isConnected ? 'Real-time Live' : 'Connecting...'}
+                    </span>
+                </div>
                 <Link to="/dashboard">Back to Dashboard</Link>
             </header>
+
+            {errorMsg && (
+                <div style={{ color: 'red', background: '#ffebee', padding: '10px', borderRadius: '4px', marginBottom: '1rem' }}>
+                    {errorMsg}
+                </div>
+            )}
+
+            {isLoading && (
+                <div style={{ color: '#0070f3', padding: '8px 0', marginBottom: '1rem', fontStyle: 'italic' }}>
+                    Loading tasks from server...
+                </div>
+            )}
 
             <form onSubmit={handleCreate} style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
                 <input

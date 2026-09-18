@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_DATABASE_URL")
+}
+
+model User {
+  id        String             @id
+  name      String
+  tasks     Task[]
+  sessions  AnalyticsSession[]
+
+  @@map("users")
+}
+
+model Task {
+  id        String             @id
+  title     String
+  userId    String             @map("user_id")
+  user      User               @relation(fields: [userId], references: [id])
+  sessions  AnalyticsSession[]
+
+  @@index([userId], map: "idx_tasks_user_id")
+  @@map("tasks")
+}
+
+model AnalyticsSession {
+  id        Int       @id @default(autoincrement())
+  taskId    String    @map("task_id")
+  userId    String    @map("user_id")
+  duration  Int
+  startedAt DateTime? @map("started_at")
+  endedAt   DateTime? @map("ended_at")
+
+  task      Task      @relation(fields: [taskId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([taskId], map: "idx_analytics_sessions_task_id")
+  @@index([userId], map: "idx_analytics_sessions_user_id")
+  @@map("analytics_sessions")
+}
+
