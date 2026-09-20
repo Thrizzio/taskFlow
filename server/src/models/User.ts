@@ -8,11 +8,30 @@ const userSchema = new mongoose.Schema({
     },
     passwordHash: {
         type: String,
-        required: true,
+        required: false,
     },
     name: {
         type: String,
         required: true,
+    },
+    googleId: {
+        type: String,
+        sparse: true,
+        unique: true,
+    },
+    authProvider: {
+        type: String,
+        enum: ['local', 'google'],
+        default: 'local',
+    },
+    role: {
+        type: String,
+        enum: ['user', 'admin'],
+        default: 'user',
+    },
+    isPro: {
+        type: Boolean,
+        default: false,
     }
 }, { timestamps: true });
 

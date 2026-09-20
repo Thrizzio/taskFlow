@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/api';
 
 export const Focus = () => {
     const [time, setTime] = useState(0);
@@ -17,7 +18,7 @@ export const Focus = () => {
     useEffect(() => {
         if (!taskId) return;
         const fetchTask = async () => {
-            const res = await fetch(`http://localhost:4000/api/tasks/${taskId}`, {
+            const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -46,7 +47,7 @@ export const Focus = () => {
         if (timerRef.current) clearInterval(timerRef.current);
 
         try {
-            await fetch('http://localhost:4000/api/focus-sessions', {
+            await fetch(`${API_BASE_URL}/api/focus-sessions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({
@@ -71,32 +72,32 @@ export const Focus = () => {
     if (!taskId || !task) return <div>Invalid or loading task...</div>;
 
     return (
-        <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'sans-serif' }}>
+        <div style={{ padding: 'clamp(1rem, 4vw, 2rem)', textAlign: 'center', fontFamily: 'sans-serif', maxWidth: '600px', margin: '0 auto' }}>
             <header style={{ marginBottom: '2rem', textAlign: 'left' }}>
                 <Link to={`/tasks/${taskId}`}>&larr; Back to Task</Link>
             </header>
 
-            <h2>Focusing on: {task.title}</h2>
+            <h2 style={{ fontSize: 'clamp(1.2rem, 4vw, 1.8rem)', wordBreak: 'break-word' }}>Focusing on: {task.title}</h2>
 
-            <div style={{ fontSize: '4rem', margin: '2rem 0', fontFamily: 'monospace' }}>
+            <div style={{ fontSize: 'clamp(2.8rem, 12vw, 4.5rem)', margin: '2rem 0', fontFamily: 'monospace', fontWeight: 700 }}>
                 {formatTime(time)}
             </div>
 
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                 {(status === 'IDLE' || status === 'PAUSED') && (
-                    <button onClick={startTimer} style={{ padding: '10px 20px', background: 'green', color: 'white' }}>
+                    <button onClick={startTimer} style={{ padding: '12px 24px', background: 'green', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '1rem', minWidth: '130px' }}>
                         {status === 'IDLE' ? 'Start Focus' : 'Resume'}
                     </button>
                 )}
 
                 {status === 'RUNNING' && (
-                    <button onClick={pauseTimer} style={{ padding: '10px 20px', background: 'orange' }}>
+                    <button onClick={pauseTimer} style={{ padding: '12px 24px', background: 'orange', color: 'black', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '1rem', minWidth: '130px' }}>
                         Pause
                     </button>
                 )}
 
                 {(status === 'RUNNING' || status === 'PAUSED') && (
-                    <button onClick={completeSession} style={{ padding: '10px 20px', background: 'blue', color: 'white' }}>
+                    <button onClick={completeSession} style={{ padding: '12px 24px', background: 'blue', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '1rem', minWidth: '130px' }}>
                         Complete Session
                     </button>
                 )}

@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
@@ -7,13 +8,15 @@ import { Tasks } from './pages/Tasks';
 import { TaskDetail } from './pages/TaskDetail';
 import { Focus } from './pages/Focus';
 import { Analytics } from './pages/Analytics';
+import { Upgrade } from './pages/Upgrade';
 import { JSConceptsPage } from './features/javascript-concepts/JSConceptsPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
   return (
     <AuthProvider>
-      <Router>
+      <SocketProvider>
+        <Router>
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
@@ -30,10 +33,12 @@ function App() {
 
             <Route path="/focus" element={<Focus />} />
             <Route path="/analytics" element={<Analytics />} />
+            <Route path="/upgrade" element={<Upgrade />} />
             <Route path="/javascript-concepts" element={<JSConceptsPage />} />
           </Route>
         </Routes>
       </Router>
+      </SocketProvider>
     </AuthProvider>
   );
 }

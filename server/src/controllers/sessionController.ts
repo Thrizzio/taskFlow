@@ -3,7 +3,73 @@ import { AuthRequest } from '../middleware/auth';
 import { FocusSession } from '../models/FocusSession';
 import { Task } from '../models/Task';
 import { User } from '../models/User';
-import { pool } from '../db/pg';
+import { prisma } from '../db/prisma';
+import { invalidateCachePattern } from '../utils/redis';
+import { emitFocusSessionCompleted } from '../socket';
+
+export interface AnalyticsTransactionParams {
+    userId: string;
+    userName: string;
+    taskId: string;
+    taskTitle: string;
+    duration: number;
+    startedAt: string | Date;
+    endedAt: string | Date;
+    simulateFailureInStep?: number;
+}
+
+/**
+ * Executes a PostgreSQL database transaction across users, tasks, and analytics_sessions.
+ * Demonstrates ACID transaction semantics: if inserting the analytics session fails,
+ * all preceding writes in the transaction are rolled back cleanly.
+ *
+ * Architecture Boundary Note:
+ * MongoDB and PostgreSQL are separate database systems. A local database transaction
+ * cannot atomically span across both heterogeneous engines without distributed 2PC.
+ * Thus, the transaction boundary is explicitly encapsulated within the PostgreSQL analytics store.
+ */
+export async function persistAnalyticsSessionTx(params: AnalyticsTransactionParams) {
+    return await prisma.$transaction(async (tx) => {
+        // Step 1: Upsert User record
+        await tx.user.upsert({
+            where: { id: params.userId },
+            update: { name: params.userName },
+            create: { id: params.userId, name: params.userName },
+        });
+
+        if (params.simulateFailureInStep === 2) {
+            throw new Error('Simulated transaction failure at step 2');
+        }
+
+        // Step 2: Upsert Task record
+        await tx.task.upsert({
+            where: { id: params.taskId },
+            update: { title: params.taskTitle },
+            create: {
+                id: params.taskId,
+                title: params.taskTitle,
+                userId: params.userId,
+            },
+        });
+
+        if (params.simulateFailureInStep === 3) {
+            throw new Error('Simulated transaction failure at step 3');
+        }
+
+        // Step 3: Insert Analytics Session record
+        const session = await tx.analyticsSession.create({
+            data: {
+                taskId: params.taskId,
+                userId: params.userId,
+                duration: params.duration,
+                startedAt: new Date(params.startedAt),
+                endedAt: new Date(params.endedAt),
+            },
+        });
+
+        return session;
+    });
+}
 
 export const createFocusSession = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -15,8 +81,7 @@ export const createFocusSession = async (req: AuthRequest, res: Response): Promi
             return;
         }
 
-        // The session is saved first so the operational MongoDB record
-        // exists before analytics data is written.
+        // Save operational MongoDB record
         const session = new FocusSession({
             taskId,
             userId,
@@ -28,32 +93,32 @@ export const createFocusSession = async (req: AuthRequest, res: Response): Promi
 
         await session.save();
 
-        // These two lookups are independent and could be executed with
-        // Promise.all(), but they are kept sequential here for simpler
-        // control flow and easier error handling in this small application.
+        // Look up task and user for analytics sync
         const task = await Task.findById(taskId);
         const user = await User.findById(userId);
 
         if (task && user) {
-            // These two upserts are also independent and could be executed
-            // concurrently with Promise.all(). They remain sequential here
-            // to keep the database write sequence explicit.
-            await pool.query(`
-                INSERT INTO users (id, name) VALUES ($1, $2)
-                ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
-            `, [user._id.toString(), user.name]);
+            try {
+                // Execute multi-step persistence inside atomic Prisma transaction
+                await persistAnalyticsSessionTx({
+                    userId: user._id.toString(),
+                    userName: user.name,
+                    taskId: task._id.toString(),
+                    taskTitle: task.title,
+                    duration,
+                    startedAt,
+                    endedAt,
+                });
+            } catch (txErr) {
+                console.error('PostgreSQL analytics transaction rolled back:', txErr);
+                // Operational session in Mongo succeeded; report analytics sync warning
+            }
+        }
 
-            await pool.query(`
-                INSERT INTO tasks (id, title, user_id) VALUES ($1, $2, $3)
-                ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title
-            `, [task._id.toString(), task.title, user._id.toString()]);
-
-            // This depends on the user and task records being available,
-            // so it remains after the previous operations.
-            await pool.query(`
-                INSERT INTO analytics_sessions (task_id, user_id, duration, started_at, ended_at)
-                VALUES ($1, $2, $3, $4, $5)
-            `, [task._id.toString(), user._id.toString(), duration, startedAt, endedAt]);
+        // Invalidate Redis analytics cache for this user
+        if (userId) {
+            await invalidateCachePattern(`analytics:user:${userId}:*`);
+            emitFocusSessionCompleted(userId, session);
         }
 
         res.status(201).json(session);
